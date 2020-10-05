@@ -1,0 +1,105 @@
+act
+	%booster module
+	%TODO change to number 0/1 typedef
+	ignite_bm,r_startup_bm,s_startup_bm,c_startup_bm:Bool;
+	stop_bm,r_stop_bm,s_stop_bm,c_stop_bm:Bool;
+	confirm_bm_thrust,r_confirm_bm_thrust,s_confirm_bm_thrust,c_confirm_bm_thrust:Bool;
+	fail_bm_thrust,r_fail_bm_thrust,s_fail_bm_thrust,c_fail_bm_thrust:Bool;
+	fire_bm:Bool;
+
+	release_bm:Bool;
+	confirm_bm_release:Bool;
+
+	%launch module
+	ignite_lm;
+	confirm_lm_thrust;
+	fail_lm_thrust;
+	stop_lm;
+	fire_lm;
+	orbit_ok_lm;
+	orbit_achieved;
+	release_ground_clamps;
+
+	%crew module
+	abort_cm;
+	abort_pad;
+	land_cm;
+proc
+	BM(left:Bool,broken:Bool) =
+		(!broken) -> r_startup_bm(left) . ignite_bm(left) . (BM_fail(left) + s_confirm_bm_thrust(left) . BM_on(left))
+		+ r_stop_bm(left) . BM(left,broken);
+	BM_fail(left:Bool) = fail_bm_thrust(left) . s_fail_bm_thrust(left) . BM(left,true);
+	BM_on(left:Bool) = 
+		fire_bm(left) . BM_on(left)
+		+ BM_fail(left)
+		+ r_stop_bm(left) . BM(left,false);
+
+	LM_startup = (ignite_lm . s_startup_bm(true) . s_startup_bm(false)) . (
+		(r_confirm_bm_thrust(true) . r_confirm_bm_thrust(false) . confirm_lm_thrust) . release_ground_clamps . LM_fly
+		+(r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . Pad_abort
+	);
+
+	LM_fly =
+		fire_lm . LM_fly
+		+(r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . Abort
+		+orbit_ok_lm . LM_sep_bm; 
+
+	LM_sep_bm = s_stop_bm(true) . s_stop_bm(false) . (
+		confirm_bm_release(true) . confirm_bm_release(false) . LM_fly_more
+		+ Abort
+	);
+
+	LM_fly_more = 
+		fire_lm . LM_fly_more
+		+orbit_ok_lm . stop_lm . orbit_achieved
+		+fail_lm_thrust . Abort;
+
+	%launch aborted at pad, rocket still on ground
+	Pad_abort = 
+		(r_confirm_bm_thrust(true) + r_confirm_bm_thrust(false) + confirm_lm_thrust
+		+r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . Pad_abort
+		+s_stop_bm(true) . s_stop_bm(false) . stop_lm . abort_pad . delta;
+
+	%launch aborted in air, crew module released
+	Abort = s_stop_bm(true) . s_stop_bm(false) . stop_lm . abort_cm . land_cm . delta;
+	
+
+init allow(
+	{
+		c_startup_bm,
+		c_stop_bm,
+		c_confirm_bm_thrust,
+		c_fail_bm_thrust,
+
+		fail_bm_thrust,
+		fire_bm,
+		ignite_bm,
+		stop_bm,
+
+		release_bm,
+		confirm_bm_release,
+
+		%launch module
+		ignite_lm,
+		confirm_lm_thrust,
+		fail_lm_thrust,
+		stop_lm,
+		fire_lm,
+		orbit_ok_lm,
+		orbit_achieved,
+		release_ground_clamps,
+
+		%crew module
+		abort_cm,
+		abort_pad,
+		land_cm
+	},
+	comm({
+		r_startup_bm|s_startup_bm->c_startup_bm,
+		r_stop_bm|s_stop_bm->c_stop_bm,
+		r_confirm_bm_thrust|s_confirm_bm_thrust->c_confirm_bm_thrust,
+		r_fail_bm_thrust|s_fail_bm_thrust->c_fail_bm_thrust
+	},
+		BM(true,false) || BM(false,false) || LM_startup
+	)
+);
