@@ -1,0 +1,25 @@
+map setbool: List(Bool) # Int # Bool -> List(Bool);
+map getbool: List(Bool) # Int -> Bool;
+map initbools: Int # Bool -> List(Bool);
+map mapsize: Nat;
+
+var m:List(Bool);
+	n:Int;
+	v:Bool;
+
+eqn n==0 -> setbool(m,n,v) = v |> tail(m);
+	n!=0 -> setbool(m,n,v) = head(m) |> setbool(tail(m),n-1,v);
+	n==0 -> getbool(m,n) = head(m);
+	n!=0 -> getbool(m,n) = getbool(tail(m),n-1);
+	n==0 -> initbools(n,v) = [];
+	n!=0 -> initbools(n,v) = v |> initbools(n-1,v);
+	mapsize = 3;
+
+
+act toggle:Int;
+
+
+proc
+	run(state:List(Bool)) = sum n:Int. (n>=0 && n<mapsize) -> toggle(n) . run(setbool(state,n,!getbool(state,n)));
+
+init run(initbools(mapsize,false));
