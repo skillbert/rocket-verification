@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "mcrl22lps -l regular2 ${relativeFile} ${relativeFileDirname}/${fileBasenameNoExtension}.lps & lps2lts ${relativeFileDirname}/${fileBasenameNoExtension}.lps ${relativeFileDirname}/${fileBasenameNoExtension}.lts",
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{"label": "path","type": "shell","command":"echo ${relativeFileDirname}"}
+	]
+}
