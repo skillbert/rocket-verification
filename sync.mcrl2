@@ -1,0 +1,20 @@
+act 
+	r,s,c:Bool;
+	f:Bool;
+
+proc
+	master = s(true)|s(false);
+	slave(t:Bool) = r(t) . f(t);
+
+init allow(
+	{
+		c|c,
+		f
+	},
+	comm(
+		{
+			r|s -> c
+		},
+		master || slave(true) || slave(false)
+	)
+);
