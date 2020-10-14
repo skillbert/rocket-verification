@@ -65,15 +65,25 @@ act
 	land_cm;
 	do_space_stuff;
 proc
+	%@param(left): True = left BM, False = right BM.
+	%@param(broken): Whether the BM is broken (False) or not (True).
+	%@desc: This proces defines the main actions for a BM (start, stop, seperate).
 	BM(left:Bool,broken:Bool) =
 		(!broken) -> r_startup_bm(left) . ignite_bm(left) . BM_start(left)
 		+ r_stop_bm(left) . BM(left,broken)
 		+ r_release_bm(left) . BM_seperated;
+	
+	%@param(left): True = left BM, False = right BM.
+	%@desc: This proces defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(left:Bool) =
 		BM_fail(left) 
 		+ r_stop_bm(left) . BM_stop(left)
 		+ s_confirm_bm_thrust(left) . BM_on(left);
+	
+	%@desc: When the BM is seperated it ends in a proces that cannot do anything (delta).
 	BM_seperated = delta;
+	
+	%
 	BM_stop(left:Bool) = stop_bm(left) . s_stopped_bm(left) . BM(left,false);
 	BM_fail(left:Bool) = fail_bm_thrust(left) . (s_fail_bm_thrust(left) + r_stop_bm(left) . s_stopped_bm(left)) . BM(left,true);
 	BM_on(left:Bool) = 
