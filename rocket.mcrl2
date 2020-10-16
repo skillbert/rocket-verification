@@ -47,7 +47,7 @@ act
 	s_lm_orbit_ok,r_lm_orbit_ok,c_lm_orbit_ok;
 
 	%orbital module
-	seperate_om;
+	separate_om;
 	ignite_om;
 	confirm_om_thrust;
 	stop_om;
@@ -59,7 +59,7 @@ act
 	s_om_orbit_ok,r_om_orbit_ok,c_om_orbit_ok;
 
 	%crew module
-	seperate_cm;
+	separate_cm;
 	abort_cm;
 	abort_pad;
 	land_cm;
@@ -74,11 +74,11 @@ proc
 
 	%@param(left): True = left BM, False = right BM.
 	%@param(broken): Whether the BM is broken (False) or not (True).
-	%@desc: This process defines the main actions for a BM (start, stop, seperate).
+	%@desc: This process defines the main actions for a BM (start, stop, separate).
 	BM(left:Bool,broken:Bool) =
 		(!broken) -> r_startup_bm(left) . ignite_bm(left) . BM_start(left)
 		+ r_stop_bm(left) . BM(left,broken)
-		+ r_release_bm(left) . BM_seperated;
+		+ r_release_bm(left) . BM_separated;
 	
 	%@param(left): True = left BM, False = right BM.
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
@@ -87,8 +87,8 @@ proc
 		+ r_stop_bm(left) . BM_stop(left)
 		+ s_confirm_bm_thrust(left) . BM_on(left);
 	
-	%@desc: When the BM is seperated it ends in a process that cannot do anything (delta).
-	BM_seperated = delta;
+	%@desc: When the BM is separated it ends in a process that cannot do anything (delta).
+	BM_separated = delta;
 	
 	%@param(left): True = left BM, False = right
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
@@ -176,7 +176,7 @@ proc
 		);
 
 	OM_wait = r_lm_orbit_ok . OM;
-	OM = seperate_om . ignite_om . (
+	OM = separate_om . ignite_om . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
@@ -188,8 +188,8 @@ proc
 
 	%crew module
 	CM = 
-		(r_lm_abort + r_om_abort) . seperate_cm . abort_cm . CM_land
-		+ r_om_orbit_ok . seperate_cm . orbit_achieved . do_space_stuff . CM_land;
+		(r_lm_abort + r_om_abort) . separate_cm . abort_cm . CM_land
+		+ r_om_orbit_ok . separate_cm . orbit_achieved . do_space_stuff . CM_land;
 
 	%TODO add sep SM, chutes, heatshield, airbags
 	CM_land = land_cm . delta;
@@ -224,7 +224,7 @@ init allow(
 		c_lm_orbit_ok,
 
 		%orbital module
-		seperate_om,
+		separate_om,
 		ignite_om,
 		confirm_om_thrust,
 		stop_om,
@@ -236,7 +236,7 @@ init allow(
 		c_om_orbit_ok,
 
 		%crew module
-		seperate_cm,
+		separate_cm,
 		abort_cm,
 		abort_pad,
 		land_cm,
