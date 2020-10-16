@@ -96,15 +96,25 @@ proc
 	%@param(left): True = left BM, False = right BM.
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(left:Bool) =
-		s_check_fuel . (r_fuel(true) . (s_confirm_bm_thrust(left) . BM_on(left)
-										+ ((BM_fail(left)
-											+ r_stop_bm(left) . BM_stop(left)))
-			
-						+ r_fuel(false) . (BM_fail(left)
-											+ r_stop_bm(left) . BM_stop(left))));
-		
-		
-	
+		s_check_fuel . (
+			r_fuel(true) . (
+				s_confirm_bm_thrust(left) . BM_on(left)
+				+ BM_fail(left)
+				+ r_stop_bm(left) . BM_stop(left)
+			)
+			+ r_fuel(false) . (
+				BM_fail(left)
+				+ r_stop_bm(left) . BM_stop(left)
+			)
+		);
+
+	%@param(left): True = left BM, False = right BM.
+	%@desc: The continuous process of the booster firing (and possibly failing)
+	BM_thrust_cycle(left:Bool) = 
+		s_check_fuel . (
+			r_fuel(true) . (thrust_bm(left) . BM_on(left) + BM_fail(left))
+			+ r_fuel(false) . BM_fail(left)
+		);
 	
 	%@param(left): True = left BM, False = right
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
@@ -117,10 +127,8 @@ proc
 	%@param(left): True = left BM, False = right BM
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(left:Bool) = 
-		s_check_fuel . (r_fuel(true) . (thrust_bm(left) . BM_on(left)
-										 + r_stop_bm(left) . BM_stop(left))
-					+ r_fuel(false) . (BM_fail(left)
-										 + r_stop_bm(left) . BM_stop(left)));
+		BM_thrust_cycle(left) . BM_on(left)
+		+ r_stop_bm(left) . BM_stop(left);
 		
 
 	%@desc: The LM and BM startup happen in parallel. Ignite LM, BMLeft and BMRight, 
