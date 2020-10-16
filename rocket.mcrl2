@@ -59,7 +59,7 @@ act
 	s_om_orbit_ok,r_om_orbit_ok,c_om_orbit_ok;
 
 	%crew module
-	detach_om1;
+	detach_om;
 	abort_cm;
 	abort_pad;
 	land_cm;
