@@ -179,7 +179,8 @@ proc
 	%not 100% sure, we need to continue talking to boosters for their controllers to not hang
 	LM_safe = LM_ignore_bm . LM_safe;
 
-	%TODO remove
+	%@desc: During an abort we need to continue interacting with the boosters so they can continue their processes
+	%       Other than that the LM is done so can ignore these signals
 	LM_ignore_bm = (
 			r_confirm_bm_thrust(true) + r_confirm_bm_thrust(false)
 			+ r_fail_bm_thrust(true) + r_fail_bm_thrust(false) 
