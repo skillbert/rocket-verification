@@ -151,9 +151,8 @@ proc
 		) <> LM_sep_bm([true,true]);
 
 	%@param(bm_attached): List[BMLeft, BMRight] consisting of bools. True: BM is attached, False: BM is detached.
-	%@desc: 
-	
-	%TODO: Hier hetzelfde verhaal, begrijp niet helemaal hoe ik dit moet interpreteren.
+	%@desc: This process describes the actions the LM performs when separating from the BMs. If it is separated and out of
+	%		the atmosphere it will start the LM_fly_space process.
 	LM_sep_bm(bm_attached:List(Bool)) = 
 		(getbool(bm_attached,0) || getbool(bm_attached,1)) -> (
 			getbool(bm_attached,0) -> s_detach_bm(false) . LM_sep_bm(setbool(bm_attached,0,false))
@@ -193,7 +192,7 @@ proc
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
-	
+	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
 		thrust_om . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
@@ -277,6 +276,6 @@ init allow(
 		s_alt|r_alt->c_alt,
 		s_fuel|r_fuel->c_fuel
 	},
-		BM(true,false) || BM(false,false) || LM_startup || OM_wait || CM || fuelsensor || altimeter
+		BM(true,false) || BM(false,false) || LM_startup || OM_wait || CM || altimeter
 	)
 );
