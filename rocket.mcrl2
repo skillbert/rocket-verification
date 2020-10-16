@@ -47,7 +47,8 @@ act
 	s_lm_orbit_ok,r_lm_orbit_ok,c_lm_orbit_ok;
 
 	%orbital module
-	detach_cm;
+	detach_lm;
+	detach_ascent_cover;
 	ignite_om;
 	confirm_om_thrust;
 	stop_om;
@@ -113,8 +114,8 @@ proc
 	%@param(left): True = left BM, False = right BM
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. 
 	BM_on(left:Bool) = 
-		thrust_bm(left) . BM_on(left)
-		+ BM_fail(left)
+		s_check_fuel . (r_fuel(true) . thrust_bm(left) . BM_on(left)
+						+ r_fuel(false) . BM_fail(left)
 		+ r_stop_bm(left) . BM_stop(left);
 
 	%@desc: The LM and BM startup happen in parallel. Ignite LM, BMLeft and BMRight, 
@@ -134,9 +135,9 @@ proc
 
 	%@desc: This process defines the actions the LM performs when it is in the air (fly, abort, stop).
 	LM_fly =
-		thrust_lm . LM_fly
-		+(r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . LM_abort
-		+ (	s_check_alt . r_alt(1) . s_stop_bm(true)|s_stop_bm(false) . LM_stop_bm([true,true]));
+		s_check_fuel . (r_fuel(true) . thrust_lm . LM_fly
+						+ r_fuel(false) . (r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . LM_abort)
+		+ (s_check_alt . r_alt(1) . s_stop_bm(true)|s_stop_bm(false) . LM_stop_bm([true,true]));
 
 	%@param(bm_on): List[BMLeft,BMRight] consisting of bools. True: BM is on, False: BM is off.
 	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state in a parallel action(on or off), 
@@ -145,21 +146,20 @@ proc
 		(getbool(bm_on,0) || getbool(bm_on,1)) -> (
 			getbool(bm_on,0) -> (r_stopped_bm(false) + r_fail_bm_thrust(false)) . LM_stop_bm(setbool(bm_on,0,false))
 			+ getbool(bm_on,1) -> (r_stopped_bm(true) + r_fail_bm_thrust(true)) . LM_stop_bm(setbool(bm_on,1,false))
-			+ thrust_lm . LM_stop_bm(bm_on)
-			+ fail_lm_thrust . LM_abort
+			+ s_check_fuel . (r_fuel(true) . thrust_lm . LM_stop_bm(bm_on)
+								+ r_fuel(false) . fail_lm_thrust . LM_abort)
 		) <> LM_sep_bm([true,true]);
 
 	%@param(bm_attached): List[BMLeft, BMRight] consisting of bools. True: BM is attached, False: BM is detached.
-	%@desc: 
+	%@desc: This process describes the actions the LM performs when separating from the BMs. If it is separated and out of
+	%		the atmosphere it will start the LM_fly_space process.
 	
-	%TODO: Hier hetzelfde verhaal, begrijp niet helemaal hoe ik dit moet interpreteren.
 	LM_sep_bm(bm_attached:List(Bool)) = 
 		(getbool(bm_attached,0) || getbool(bm_attached,1)) -> (
 			getbool(bm_attached,0) -> s_detach_bm(false) . LM_sep_bm(setbool(bm_attached,0,false))
 			+ getbool(bm_attached,1) -> s_detach_bm(true) . LM_sep_bm(setbool(bm_attached,1,false))
-			+ thrust_lm . LM_sep_bm(bm_attached)
-			+ LM_abort %add sep fail action
-			+ fail_lm_thrust . LM_abort
+			+ s_check_fuel . (r_fuel(true) . thrust_lm . LM_sep_bm(bm_attached)
+								+ r_fuel(false) . fail_lm_thrust . LM_abort) %add sep fail action
 		) <> s_check_alt . r_alt(2) . LM_fly_space;
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
@@ -169,8 +169,8 @@ proc
 	%@desc: This process defines the actions when the LM is in space. The LM can fail resulting in an abort or it can succesfully
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
-		thrust_lm . LM_fly_space
-		+fail_lm_thrust . s_lm_abort
+		s_check_fuel . (r_fuel(true) . thrust_lm . LM_fly_space
+						+ r_fuel(false) . fail_lm_thrust . s_lm_abort)
 		+s_check_alt . r_alt(2) . stop_lm . s_lm_orbit_ok . delta;
 
 	%@desc: launch aborted at pad, rocket still on ground
@@ -188,14 +188,14 @@ proc
 		);
 
 	OM_wait = r_lm_orbit_ok . OM;
-	OM = detach_cm . ignite_om . (
+	OM = detach_lm . detach_ascent_cover . ignite_om . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
 	
 	OM_fly = 
-		thrust_om . OM_fly
-		+ fail_om_thrust . stop_om . s_om_abort . delta
+		s_check_fuel . (r_fuel(true) . thrust_om . OM_fly
+						+ r_fuel(false) . fail_om_thrust . stop_om . s_om_abort . delta)
 		+ orbit_ok_om . s_om_orbit_ok . delta;
 
 	%crew module
@@ -236,7 +236,8 @@ init allow(
 		c_lm_orbit_ok,
 
 		%orbital module
-		detach_cm,
+		detach_lm,
+		detach_ascent_cover,
 		ignite_om,
 		confirm_om_thrust,
 		stop_om,
