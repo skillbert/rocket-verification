@@ -74,10 +74,11 @@ act
 	
 				
 proc
+	%TODO: not implemented in this version.
 	%@param(Bool): True: fuel full, False: fuel empty.
 	%@desc: Fuel sensor for the system.
-	fuelsensor = r_check_fuel . (s_fuel(true) . fuelsensor
-								 + s_fuel(false) . fuelsensor);
+	% fuelsensor = r_check_fuel . (s_fuel(true) . fuelsensor
+	% 							 + s_fuel(false) . fuelsensor);
 
 	%@param(Bool): 1: height to detach BM, 2: height to detach LM.
 	%@desc: altimeter sensor for the system
