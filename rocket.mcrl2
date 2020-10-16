@@ -60,7 +60,7 @@ act
 	s_om_orbit_ok,r_om_orbit_ok,c_om_orbit_ok;
 
 	%crew module
-	detach_om1;
+	detach_om;
 	abort_cm;
 	abort_pad;
 	land_cm;
@@ -115,7 +115,7 @@ proc
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. 
 	BM_on(left:Bool) = 
 		s_check_fuel . (r_fuel(true) . thrust_bm(left) . BM_on(left)
-						+ r_fuel(false) . BM_fail(left)
+						+ r_fuel(false) . BM_fail(left))
 		+ r_stop_bm(left) . BM_stop(left);
 
 	%@desc: The LM and BM startup happen in parallel. Ignite LM, BMLeft and BMRight, 
