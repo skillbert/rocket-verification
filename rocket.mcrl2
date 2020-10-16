@@ -25,7 +25,8 @@ act
 	confirm_bm_thrust:Bool;
 	fail_bm_thrust:Bool;
 	thrust_bm:Bool;
-
+	detach_from_lm;
+	
 	s_startup_bm,r_startup_bm,c_startup_bm:Bool;
 	s_stop_bm,r_stop_bm,c_stop_bm:Bool;
 	s_confirm_bm_thrust,r_confirm_bm_thrust,c_confirm_bm_thrust:Bool;
@@ -38,13 +39,12 @@ act
 	fail_lm_thrust;
 	stop_lm;
 	thrust_lm;
-	orbit_ok_lm;
 	orbit_achieved;
 	detach_ground_clamps;
 	s_detach_bm,r_detach_bm,c_detach_bm:Bool;
 
 	s_lm_abort,r_lm_abort,c_lm_abort;
-	s_lm_orbit_ok,r_lm_orbit_ok,c_lm_orbit_ok;
+	s_lm_ready_detach,r_lm_ready_detach,c_lm_ready_detach;
 
 	%orbital module
 	detach_lm;
@@ -57,7 +57,7 @@ act
 	orbit_ok_om;
 
 	s_om_abort,r_om_abort,c_om_abort;
-	s_om_orbit_ok,r_om_orbit_ok,c_om_orbit_ok;
+	s_om_ready_detach,r_om_ready_detach,c_om_ready_detach;
 
 	%crew module
 	detach_om;
@@ -91,7 +91,7 @@ proc
 	BM(left:Bool,broken:Bool) =
 		(!broken) -> r_startup_bm(left) . ignite_bm(left) . BM_start(left)
 		+ r_stop_bm(left) . BM(left,broken)
-		+ r_detach_bm(left) . BM_detachd;
+		+ r_detach_bm(left) . detach_from_lm . delta;
 	
 	%@param(left): True = left BM, False = right BM.
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
@@ -100,8 +100,7 @@ proc
 		+ r_stop_bm(left) . BM_stop(left)
 		+ s_confirm_bm_thrust(left) . BM_on(left);
 	
-	%@desc: When the BM is detachd it ends in a process that cannot do anything (delta).
-	BM_detachd = delta;
+
 	
 	%@param(left): True = left BM, False = right
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
@@ -112,7 +111,7 @@ proc
 	BM_fail(left:Bool) = fail_bm_thrust(left) . (s_fail_bm_thrust(left) + r_stop_bm(left) . s_stopped_bm(left)) . BM(left,true);
 
 	%@param(left): True = left BM, False = right BM
-	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. 
+	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(left:Bool) = 
 		s_check_fuel . (r_fuel(true) . thrust_bm(left) . BM_on(left)
 						+ r_fuel(false) . BM_fail(left))
@@ -171,7 +170,7 @@ proc
 	LM_fly_space = 
 		s_check_fuel . (r_fuel(true) . thrust_lm . LM_fly_space
 						+ r_fuel(false) . fail_lm_thrust . s_lm_abort)
-		+s_check_alt . r_alt(2) . stop_lm . s_lm_orbit_ok . delta;
+		+s_check_alt . r_alt(2) . stop_lm . s_lm_ready_detach . delta;
 
 	%@desc: launch aborted at pad, rocket still on ground
 	LM_ground_abort = s_stop_bm(true)|s_stop_bm(false) . stop_lm . abort_pad . LM_safe;
@@ -187,21 +186,22 @@ proc
 			%+ confirm_lm_thrust + fail_lm_thrust
 		);
 
-	OM_wait = r_lm_orbit_ok . OM;
+	OM_wait = r_lm_ready_detach . OM;
 	OM = detach_lm . detach_ascent_cover . ignite_om . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
 	
+	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
 		s_check_fuel . (r_fuel(true) . thrust_om . OM_fly
 						+ r_fuel(false) . fail_om_thrust . stop_om . s_om_abort . delta)
-		+ orbit_ok_om . s_om_orbit_ok . delta;
+		+ orbit_ok_om . s_om_ready_detach . delta;
 
 	%crew module
 	CM = 
 		(r_lm_abort + r_om_abort) . detach_om . abort_cm . CM_land
-		+ r_om_orbit_ok . detach_om . orbit_achieved . do_space_stuff . CM_land;
+		+ r_om_ready_detach . detach_om . orbit_achieved . do_space_stuff . CM_land;
 
 	%TODO add sep SM, chutes, heatshield, airbags
 	CM_land = land_cm . delta;
@@ -227,13 +227,12 @@ init allow(
 		fail_lm_thrust,
 		stop_lm,
 		thrust_lm,
-		orbit_ok_lm,
 		orbit_achieved,
 		detach_ground_clamps,
 		c_detach_bm,
 
 		c_lm_abort,
-		c_lm_orbit_ok,
+		c_lm_ready_detach,
 
 		%orbital module
 		detach_lm,
@@ -246,7 +245,7 @@ init allow(
 		orbit_ok_om,
 		
 		c_om_abort,
-		c_om_orbit_ok,
+		c_om_ready_detach,
 
 		%crew module
 		detach_om,
@@ -268,9 +267,9 @@ init allow(
 		r_stopped_bm|s_stopped_bm -> c_stopped_bm,
 		r_fail_bm_thrust|s_fail_bm_thrust -> c_fail_bm_thrust,
 		s_lm_abort|r_lm_abort -> c_lm_abort,
-		s_lm_orbit_ok|r_lm_orbit_ok -> c_lm_orbit_ok,
+		s_lm_ready_detach|r_lm_ready_detach -> c_lm_ready_detach,
 		s_om_abort|r_om_abort -> c_om_abort,
-		s_om_orbit_ok|r_om_orbit_ok -> c_om_orbit_ok,
+		s_om_ready_detach|r_om_ready_detach -> c_om_ready_detach,
 		s_detach_bm|r_detach_bm -> c_detach_bm,
 		s_check_alt|r_check_alt->c_check_alt,
 		s_check_fuel|r_check_fuel->c_check_fuel,
