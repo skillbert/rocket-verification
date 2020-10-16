@@ -40,14 +40,14 @@ act
 	thrust_lm;
 	orbit_ok_lm;
 	orbit_achieved;
-	release_ground_clamps;
-	s_release_bm,r_release_bm,c_release_bm:Bool;
+	detach_ground_clamps;
+	s_detach_bm,r_detach_bm,c_detach_bm:Bool;
 
 	s_lm_abort,r_lm_abort,c_lm_abort;
 	s_lm_orbit_ok,r_lm_orbit_ok,c_lm_orbit_ok;
 
 	%orbital module
-	separate_om;
+	detach_cm;
 	ignite_om;
 	confirm_om_thrust;
 	stop_om;
@@ -59,26 +59,38 @@ act
 	s_om_orbit_ok,r_om_orbit_ok,c_om_orbit_ok;
 
 	%crew module
-	separate_cm;
+	detach_om1;
 	abort_cm;
 	abort_pad;
 	land_cm;
 	do_space_stuff;
 
+	%sensors
+	s_check_fuel,r_check_fuel,c_check_fuel;
+	s_fuel,r_fuel,c_fuel:Bool;
+
+	s_check_alt,r_check_alt,c_check_alt;
+	s_alt,r_alt,c_alt:Nat;
 	
 				
 proc
-	%We should include sensors in our model.
-	%fuelsensor = r_check_fuel . (s_fuel(true) + s_fuel(false));
-	%altimeter = r_check_alt . (above_atm(true) + above_atm(false));
+	%@param(Bool): True: fuel full, False: fuel empty.
+	%@desc: Fuel sensor for the system.
+	fuelsensor = r_check_fuel . (s_fuel(true) . fuelsensor
+								 + s_fuel(false) . fuelsensor);
+
+	%@param(Bool): 1: height to detach BM, 2: height to detach LM.
+	%@desc: altimeter sensor for the system
+	altimeter = r_check_alt . (s_alt(1) . altimeter
+							 + s_alt(2) . altimeter);
 
 	%@param(left): True = left BM, False = right BM.
 	%@param(broken): Whether the BM is broken (False) or not (True).
-	%@desc: This process defines the main actions for a BM (start, stop, separate).
+	%@desc: This process defines the main actions for a BM (start, stop, detach).
 	BM(left:Bool,broken:Bool) =
 		(!broken) -> r_startup_bm(left) . ignite_bm(left) . BM_start(left)
 		+ r_stop_bm(left) . BM(left,broken)
-		+ r_release_bm(left) . BM_separated;
+		+ r_detach_bm(left) . BM_detachd;
 	
 	%@param(left): True = left BM, False = right BM.
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
@@ -87,8 +99,8 @@ proc
 		+ r_stop_bm(left) . BM_stop(left)
 		+ s_confirm_bm_thrust(left) . BM_on(left);
 	
-	%@desc: When the BM is separated it ends in a process that cannot do anything (delta).
-	BM_separated = delta;
+	%@desc: When the BM is detachd it ends in a process that cannot do anything (delta).
+	BM_detachd = delta;
 	
 	%@param(left): True = left BM, False = right
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
@@ -116,7 +128,7 @@ proc
 		  (!getbool(bm_engine,0)) -> r_confirm_bm_thrust(false) . LM_ground(engine_on,setbool(bm_engine,0,true))
 		+ (!getbool(bm_engine,1)) -> r_confirm_bm_thrust(true) . LM_ground(engine_on,setbool(bm_engine,1,true))
 		+ (!engine_on) -> confirm_lm_thrust . LM_ground(true,bm_engine)
-		+ (engine_on && getbool(bm_engine,0) && getbool(bm_engine,1)) -> release_ground_clamps . LM_fly
+		+ (engine_on && getbool(bm_engine,0) && getbool(bm_engine,1)) -> detach_ground_clamps . LM_fly
 		+ (engine_on) -> thrust_lm . LM_ground(engine_on,bm_engine)
 		+ (r_fail_bm_thrust(true) + r_fail_bm_thrust(false) + fail_lm_thrust) . LM_ground_abort;
 
@@ -124,7 +136,7 @@ proc
 	LM_fly =
 		thrust_lm . LM_fly
 		+(r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . LM_abort
-		+orbit_ok_lm . s_stop_bm(true)|s_stop_bm(false) . LM_stop_bm([true,true]); 
+		+ (	s_check_alt . r_alt(1) . s_stop_bm(true)|s_stop_bm(false) . LM_stop_bm([true,true]));
 
 	%@param(bm_on): List[BMLeft,BMRight] consisting of bools. True: BM is on, False: BM is off.
 	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state in a parallel action(on or off), 
@@ -143,12 +155,12 @@ proc
 	%TODO: Hier hetzelfde verhaal, begrijp niet helemaal hoe ik dit moet interpreteren.
 	LM_sep_bm(bm_attached:List(Bool)) = 
 		(getbool(bm_attached,0) || getbool(bm_attached,1)) -> (
-			getbool(bm_attached,0) -> s_release_bm(false) . LM_sep_bm(setbool(bm_attached,0,false))
-			+ getbool(bm_attached,1) -> s_release_bm(true) . LM_sep_bm(setbool(bm_attached,1,false))
+			getbool(bm_attached,0) -> s_detach_bm(false) . LM_sep_bm(setbool(bm_attached,0,false))
+			+ getbool(bm_attached,1) -> s_detach_bm(true) . LM_sep_bm(setbool(bm_attached,1,false))
 			+ thrust_lm . LM_sep_bm(bm_attached)
 			+ LM_abort %add sep fail action
 			+ fail_lm_thrust . LM_abort
-		) <> LM_fly_space;
+		) <> s_check_alt . r_alt(2) . LM_fly_space;
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
 	%		to the LM_safe process.
@@ -159,7 +171,7 @@ proc
 	LM_fly_space = 
 		thrust_lm . LM_fly_space
 		+fail_lm_thrust . s_lm_abort
-		+orbit_ok_lm . stop_lm . s_lm_orbit_ok . delta;
+		+s_check_alt . r_alt(2) . stop_lm . s_lm_orbit_ok . delta;
 
 	%@desc: launch aborted at pad, rocket still on ground
 	LM_ground_abort = s_stop_bm(true)|s_stop_bm(false) . stop_lm . abort_pad . LM_safe;
@@ -176,7 +188,7 @@ proc
 		);
 
 	OM_wait = r_lm_orbit_ok . OM;
-	OM = separate_om . ignite_om . (
+	OM = detach_cm . ignite_om . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
@@ -188,8 +200,8 @@ proc
 
 	%crew module
 	CM = 
-		(r_lm_abort + r_om_abort) . separate_cm . abort_cm . CM_land
-		+ r_om_orbit_ok . separate_cm . orbit_achieved . do_space_stuff . CM_land;
+		(r_lm_abort + r_om_abort) . detach_om . abort_cm . CM_land
+		+ r_om_orbit_ok . detach_om . orbit_achieved . do_space_stuff . CM_land;
 
 	%TODO add sep SM, chutes, heatshield, airbags
 	CM_land = land_cm . delta;
@@ -217,14 +229,14 @@ init allow(
 		thrust_lm,
 		orbit_ok_lm,
 		orbit_achieved,
-		release_ground_clamps,
-		c_release_bm,
+		detach_ground_clamps,
+		c_detach_bm,
 
 		c_lm_abort,
 		c_lm_orbit_ok,
 
 		%orbital module
-		separate_om,
+		detach_cm,
 		ignite_om,
 		confirm_om_thrust,
 		stop_om,
@@ -236,11 +248,17 @@ init allow(
 		c_om_orbit_ok,
 
 		%crew module
-		separate_cm,
+		detach_om,
 		abort_cm,
 		abort_pad,
 		land_cm,
-		do_space_stuff
+		do_space_stuff,
+
+		%sensors
+		c_check_alt,
+		c_check_fuel,
+		c_fuel,
+		c_alt
 	},
 	comm({
 		r_startup_bm|s_startup_bm -> c_startup_bm,
@@ -252,8 +270,12 @@ init allow(
 		s_lm_orbit_ok|r_lm_orbit_ok -> c_lm_orbit_ok,
 		s_om_abort|r_om_abort -> c_om_abort,
 		s_om_orbit_ok|r_om_orbit_ok -> c_om_orbit_ok,
-		s_release_bm|r_release_bm -> c_release_bm
+		s_detach_bm|r_detach_bm -> c_detach_bm,
+		s_check_alt|r_check_alt->c_check_alt,
+		s_check_fuel|r_check_fuel->c_check_fuel,
+		s_alt|r_alt->c_alt,
+		s_fuel|r_fuel->c_fuel
 	},
-		BM(true,false) || BM(false,false) || LM_startup || OM_wait || CM
+		BM(true,false) || BM(false,false) || LM_startup || OM_wait || CM || fuelsensor || altimeter
 	)
 );
