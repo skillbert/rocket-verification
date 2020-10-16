@@ -24,7 +24,7 @@ act
 	stop_bm:Bool;
 	confirm_bm_thrust:Bool;
 	fail_bm_thrust:Bool;
-	fire_bm:Bool;
+	thrust_bm:Bool;
 
 	s_startup_bm,r_startup_bm,c_startup_bm:Bool;
 	s_stop_bm,r_stop_bm,c_stop_bm:Bool;
@@ -37,7 +37,7 @@ act
 	confirm_lm_thrust;
 	fail_lm_thrust;
 	stop_lm;
-	fire_lm;
+	thrust_lm;
 	orbit_ok_lm;
 	orbit_achieved;
 	release_ground_clamps;
@@ -52,7 +52,7 @@ act
 	confirm_om_thrust;
 	stop_om;
 	fail_om_thrust;
-	fire_om;
+	thrust_om;
 	orbit_ok_om;
 
 	s_om_abort,r_om_abort,c_om_abort;
@@ -64,7 +64,14 @@ act
 	abort_pad;
 	land_cm;
 	do_space_stuff;
+
+	
+				
 proc
+	%We should include sensors in our model.
+	%fuelsensor = r_check_fuel . (s_fuel(true) + s_fuel(false));
+	%altimeter = r_check_alt . (above_atm(true) + above_atm(false));
+
 	%@param(left): True = left BM, False = right BM.
 	%@param(broken): Whether the BM is broken (False) or not (True).
 	%@desc: This process defines the main actions for a BM (start, stop, seperate).
@@ -83,7 +90,7 @@ proc
 	%@desc: When the BM is seperated it ends in a process that cannot do anything (delta).
 	BM_seperated = delta;
 	
-	%@param(left): True = left BM, False = right BM
+	%@param(left): True = left BM, False = right
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
 	BM_stop(left:Bool) = stop_bm(left) . s_stopped_bm(left) . BM(left,false);
 
@@ -92,9 +99,9 @@ proc
 	BM_fail(left:Bool) = fail_bm_thrust(left) . (s_fail_bm_thrust(left) + r_stop_bm(left) . s_stopped_bm(left)) . BM(left,true);
 
 	%@param(left): True = left BM, False = right BM
-	%@desc: When the BM is on it can fire the engine, fail or it can be stopped. 
+	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. 
 	BM_on(left:Bool) = 
-		fire_bm(left) . BM_on(left)
+		thrust_bm(left) . BM_on(left)
 		+ BM_fail(left)
 		+ r_stop_bm(left) . BM_stop(left);
 
@@ -110,25 +117,23 @@ proc
 		+ (!getbool(bm_engine,1)) -> r_confirm_bm_thrust(true) . LM_ground(engine_on,setbool(bm_engine,1,true))
 		+ (!engine_on) -> confirm_lm_thrust . LM_ground(true,bm_engine)
 		+ (engine_on && getbool(bm_engine,0) && getbool(bm_engine,1)) -> release_ground_clamps . LM_fly
-		+ (engine_on) -> fire_lm . LM_ground(engine_on,bm_engine)
+		+ (engine_on) -> thrust_lm . LM_ground(engine_on,bm_engine)
 		+ (r_fail_bm_thrust(true) + r_fail_bm_thrust(false) + fail_lm_thrust) . LM_ground_abort;
 
 	%@desc: This process defines the actions the LM performs when it is in the air (fly, abort, stop).
 	LM_fly =
-		fire_lm . LM_fly
+		thrust_lm . LM_fly
 		+(r_fail_bm_thrust(true)+r_fail_bm_thrust(false)+fail_lm_thrust) . LM_abort
 		+orbit_ok_lm . s_stop_bm(true)|s_stop_bm(false) . LM_stop_bm([true,true]); 
 
 	%@param(bm_on): List[BMLeft,BMRight] consisting of bools. True: BM is on, False: BM is off.
-	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state (on or off), 
+	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state in a parallel action(on or off), 
 	%		If one of the booster modules failed or stopped we turn off the BM.
-
-	%TODO: Ik snap niet helemaal wat hier gebeurd.
 	LM_stop_bm(bm_on:List(Bool)) = 
 		(getbool(bm_on,0) || getbool(bm_on,1)) -> (
 			getbool(bm_on,0) -> (r_stopped_bm(false) + r_fail_bm_thrust(false)) . LM_stop_bm(setbool(bm_on,0,false))
 			+ getbool(bm_on,1) -> (r_stopped_bm(true) + r_fail_bm_thrust(true)) . LM_stop_bm(setbool(bm_on,1,false))
-			+ fire_lm . LM_stop_bm(bm_on)
+			+ thrust_lm . LM_stop_bm(bm_on)
 			+ fail_lm_thrust . LM_abort
 		) <> LM_sep_bm([true,true]);
 
@@ -140,7 +145,7 @@ proc
 		(getbool(bm_attached,0) || getbool(bm_attached,1)) -> (
 			getbool(bm_attached,0) -> s_release_bm(false) . LM_sep_bm(setbool(bm_attached,0,false))
 			+ getbool(bm_attached,1) -> s_release_bm(true) . LM_sep_bm(setbool(bm_attached,1,false))
-			+ fire_lm . LM_sep_bm(bm_attached)
+			+ thrust_lm . LM_sep_bm(bm_attached)
 			+ LM_abort %add sep fail action
 			+ fail_lm_thrust . LM_abort
 		) <> LM_fly_space;
@@ -152,7 +157,7 @@ proc
 	%@desc: This process defines the actions when the LM is in space. The LM can fail resulting in an abort or it can succesfully
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
-		fire_lm . LM_fly_space
+		thrust_lm . LM_fly_space
 		+fail_lm_thrust . s_lm_abort
 		+orbit_ok_lm . stop_lm . s_lm_orbit_ok . delta;
 
@@ -177,7 +182,7 @@ proc
 	);
 	
 	OM_fly = 
-		fire_om . OM_fly
+		thrust_om . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 		+ orbit_ok_om . s_om_orbit_ok . delta;
 
@@ -196,7 +201,7 @@ init allow(
 		stop_bm,
 		confirm_bm_thrust,
 		fail_bm_thrust,
-		fire_bm,
+		thrust_bm,
 
 		c_startup_bm|c_startup_bm,
 		c_stop_bm|c_stop_bm,
@@ -209,7 +214,7 @@ init allow(
 		confirm_lm_thrust,
 		fail_lm_thrust,
 		stop_lm,
-		fire_lm,
+		thrust_lm,
 		orbit_ok_lm,
 		orbit_achieved,
 		release_ground_clamps,
@@ -224,7 +229,7 @@ init allow(
 		confirm_om_thrust,
 		stop_om,
 		fail_om_thrust,
-		fire_om,
+		thrust_om,
 		orbit_ok_om,
 		
 		c_om_abort,
