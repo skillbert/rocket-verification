@@ -1,0 +1,15 @@
+%using sets of finite enum as memory and progress condition
+
+sort Side = struct left|right;
+
+act 
+	ignite:Side;
+	done;
+	
+proc
+	run(side:Set(Side)) = 
+		sum x:Side. !(x in side)-> ignite(x) . run(side+{x})
+
+		%complement of set sides is empty -> sides contains all sides
+		+ (!side=={}) -> done . delta;
+init run({});

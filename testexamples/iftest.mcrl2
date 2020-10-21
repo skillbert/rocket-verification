@@ -1,0 +1,13 @@
+% the Sub proc never returns if the c value is false
+
+act subaction,done;
+
+proc 
+	Main = 
+		Sub(false) . done . delta;
+
+	Sub(c:Bool) = 
+		c -> ww;
+
+
+init Main;

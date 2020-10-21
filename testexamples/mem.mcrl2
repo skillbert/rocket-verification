@@ -1,3 +1,5 @@
+%using lists as memory
+
 map setbool: List(Bool) # Int # Bool -> List(Bool);
 map getbool: List(Bool) # Int -> Bool;
 map initbools: Int # Bool -> List(Bool);

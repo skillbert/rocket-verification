@@ -1,3 +1,5 @@
+%parallel instance comms testing
+
 act 
 	r,s,c:Bool;
 	f:Bool;
