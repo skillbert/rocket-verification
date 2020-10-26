@@ -1,5 +1,5 @@
 
-%toggle comment for 1/2/3 boosters
+%toggle comment for 1/2/3 boosters (4 different placing in code)
 sort BoosterId = struct main;
 %sort BoosterId = struct left|right;
 %sort BoosterId = struct left|right|extra;
