@@ -1,5 +1,9 @@
 
-[true*] <true> false
+%[true*] <true> false
 
 %Checks for freedom of deadlock. (doens't work..)
 %[true*] <true || s_om_abort || s_om_orbit_ok || land_cm || BM_seperated || s_lm_orbit_ok> true
+
+ [true*] [BM(main,true) . ignite_bm(main)] false
+
+ 

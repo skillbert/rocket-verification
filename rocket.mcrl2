@@ -8,9 +8,6 @@ sort BoosterId = struct main;
 act
 	%booster module
 	ignite_bm:BoosterId;
-	stop_bm:BoosterId;
-	confirm_bm_thrust:BoosterId;
-	fail_bm_thrust:BoosterId;
 	thrust_bm:BoosterId;
 	detach_from_lm:BoosterId;
 	
@@ -75,7 +72,7 @@ proc
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
 
 	%@desc: Sends fuel empty signal when either of the boosters is about to run out of fuel
-	Fuelsensor = s_bm_fuel_empty;
+	%Fuelsensor = s_bm_fuel_empty;
 
 	%@desc: Sends staging signals when orbit is heigh enough for different staging points
 	Altimeter = s_alt_stage_lm . s_alt_stage_om;
@@ -89,21 +86,21 @@ proc
 	
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(side:BoosterId) =
-		confirm_bm_thrust(side) . s_confirm_bm_thrust(side) . BM_on(side)
-		+ BM_fail(side)
-		+ r_stop_bm(side) . BM_stop(side);
+		s_confirm_bm_thrust(side) . BM_on(side)
+		+ BM_fail(side);
 	
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
-	BM_stop(side:BoosterId) = stop_bm(side) . s_stopped_bm(side) . BM(side,false);
+	BM_stop(side:BoosterId) = s_stopped_bm(side) . BM(side,false);
 
 	%@desc: This process defines the actions when a BM fails. 
-	BM_fail(side:BoosterId) = fail_bm_thrust(side) . (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
+	BM_fail(side:BoosterId) = (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
 
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(side:BoosterId) = 
 		thrust_bm(side) . BM_on(side)
 		+ BM_fail(side)
-		+ r_stop_bm(side) . BM_stop(side);
+		+ r_stop_bm(side) . BM_stop(side)
+		+ s_bm_fuel_empty . r_stop_bm(side) . BM_stop(side);
 		
 
 	%@desc: The LM and BM startup happen in parallel. Ignite LM, BMLeft and BMRight, 
@@ -199,9 +196,6 @@ init allow(
 	{
 		%booster module
 		ignite_bm,
-		stop_bm,
-		confirm_bm_thrust,
-		fail_bm_thrust,
 		thrust_bm,
 		detach_from_lm,
 		
@@ -279,6 +273,6 @@ init allow(
 		BM(main,false)
 		% BM(left,false) || BM(right,false)
 		% BM(left,false) || BM(right,false) || BM(extra,false)
-		 || LM_startup || OM_wait || CM(true) || Fuelsensor || Altimeter
+		 || LM_startup || OM_wait || CM(true) || Altimeter
 	)
 );
