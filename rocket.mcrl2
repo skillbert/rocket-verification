@@ -6,11 +6,10 @@ sort BoosterId = struct main;
 
 
 act
+	loop;
+
 	%booster module
 	ignite_bm:BoosterId;
-	stop_bm:BoosterId;
-	confirm_bm_thrust:BoosterId;
-	fail_bm_thrust:BoosterId;
 	thrust_bm:BoosterId;
 	detach_from_lm:BoosterId;
 	
@@ -62,7 +61,7 @@ act
 	s_alt_stage_lm,r_alt_stage_lm,c_alt_stage_lm;
 	s_alt_stage_om,r_alt_stage_om,c_alt_stage_om;
 	
-				
+		
 proc
 
 	%predefined multiactions
@@ -74,8 +73,6 @@ proc
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right)|s_stop_bm(extra);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
 
-	%@desc: Sends fuel empty signal when either of the boosters is about to run out of fuel
-	Fuelsensor = s_bm_fuel_empty;
 
 	%@desc: Sends staging signals when orbit is heigh enough for different staging points
 	Altimeter = s_alt_stage_lm . s_alt_stage_om;
@@ -85,26 +82,25 @@ proc
 	BM(side:BoosterId,broken:Bool) =
 		(!broken) -> r_startup_bm(side) . ignite_bm(side) . BM_start(side)
 		+ r_stop_bm(side) . BM(side,broken)
-		+ r_detach_bm(side) . detach_from_lm(side) . delta;
+		+ r_detach_bm(side) . detach_from_lm(side) . Idle;
 	
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(side:BoosterId) =
-		confirm_bm_thrust(side) . s_confirm_bm_thrust(side) . BM_on(side)
-		+ BM_fail(side)
-		+ r_stop_bm(side) . BM_stop(side);
+		s_confirm_bm_thrust(side) . BM_on(side)
+		+ BM_fail(side);
 	
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
-	BM_stop(side:BoosterId) = stop_bm(side) . s_stopped_bm(side) . BM(side,false);
+	BM_stop(side:BoosterId) =  s_stopped_bm(side) . BM(side,false);
 
 	%@desc: This process defines the actions when a BM fails. 
-	BM_fail(side:BoosterId) = fail_bm_thrust(side) . (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
+	BM_fail(side:BoosterId) =  (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
 
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(side:BoosterId) = 
 		thrust_bm(side) . BM_on(side)
 		+ BM_fail(side)
-		+ r_stop_bm(side) . BM_stop(side);
-		
+		+ s_bm_fuel_empty . r_stop_bm(side) . BM_stop(side);
+ 
 
 	%@desc: The LM and BM startup happen in parallel. Ignite LM, BMLeft and BMRight, 
 	LM_startup = (ignite_lm . s_start_bm_all) . LM_ground(false,{});
@@ -149,38 +145,36 @@ proc
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
 	%		to the LM_safe process.
-	LM_abort = s_lm_abort . s_stop_bm_all . stop_lm . LM_safe;
+	LM_abort = s_lm_abort . s_stop_bm_all . stop_lm . Idle;
 
 	%@desc: This process defines the actions when the LM is in space. The LM can fail resulting in an abort or it can succesfully
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
 		thrust_lm . LM_fly_space
 		+ fail_lm_thrust . s_lm_abort
-		+ r_alt_stage_lm . stop_lm . s_lm_ready_detach . delta;
+		+ r_alt_stage_lm . stop_lm . s_lm_ready_detach . Idle;
 	
 
 	%@desc: launch aborted at pad, rocket still on ground
-	LM_ground_abort = s_stop_bm_all . stop_lm . abort_pad . LM_safe;
+	LM_ground_abort = s_stop_bm_all . stop_lm . abort_pad .  Idle;
 
-	%not 100% sure, we need to continue talking to boosters for their controllers to not hang
-	LM_safe = LM_ignore_bm . LM_safe;
-
+	Idle = loop . Idle;
 	%TODO remove
 	LM_ignore_bm = 
-		sum side:BoosterId. r_confirm_bm_thrust(side)
-		+sum side:BoosterId. r_fail_bm_thrust(side);
+		sum side:BoosterId. r_confirm_bm_thrust(side) . LM_ignore_bm
+		+sum side:BoosterId. r_fail_bm_thrust(side) . LM_ignore_bm;
 
 	OM_wait = r_lm_ready_detach . OM;
 	OM = detach_lm . s_detact_ascent_cover . ignite_om . (
 		confirm_om_thrust . OM_fly
-		+ fail_om_thrust . stop_om . s_om_abort . delta
+		+ fail_om_thrust . stop_om . s_om_abort . Idle
 	);
 	
 	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
 		thrust_om . OM_fly
-		+ fail_om_thrust . stop_om . s_om_abort . delta
-		+ r_alt_stage_om . stop_om . s_om_ready_detach . delta;
+		+ fail_om_thrust . stop_om . s_om_abort . Idle
+		+ r_alt_stage_om . stop_om . s_om_ready_detach . Idle;
 
 	%crew and service module
 	%@desc The crew can get abort signals or a ready signal from lower stages
@@ -192,18 +186,19 @@ proc
 
 
 	%TODO add  chutes, heatshield, airbags
-	CM_land = chutes_cm . detach_heatshield_cm . airbags_cm . land_cm . delta;
+	CM_land = chutes_cm . detach_heatshield_cm . airbags_cm . land_cm . Idle;
 	
 
 init allow(
 	{
+
+		loop,
+
 		%booster module
 		ignite_bm,
-		stop_bm,
-		confirm_bm_thrust,
-		fail_bm_thrust,
 		thrust_bm,
 		detach_from_lm,
+
 		
 		%toggle comment for 1/2/3 boosters
 		c_startup_bm,
@@ -279,6 +274,6 @@ init allow(
 		BM(main,false)
 		% BM(left,false) || BM(right,false)
 		% BM(left,false) || BM(right,false) || BM(extra,false)
-		 || LM_startup || OM_wait || CM(true) || Fuelsensor || Altimeter
+		 || LM_startup || OM_wait || CM(true) || Altimeter
 	)
 );
