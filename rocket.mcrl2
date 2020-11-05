@@ -73,6 +73,8 @@ proc
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right)|s_stop_bm(extra);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
 
+	%@desc: Sends fuel empty signal when either of the boosters is about to run out of fuel
+	%Fuelsensor = s_bm_fuel_empty;
 
 	%@desc: Sends staging signals when orbit is heigh enough for different staging points
 	Altimeter = s_alt_stage_lm . s_alt_stage_om;
@@ -90,10 +92,10 @@ proc
 		+ BM_fail(side);
 	
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
-	BM_stop(side:BoosterId) =  s_stopped_bm(side) . BM(side,false);
+	BM_stop(side:BoosterId) = s_stopped_bm(side) . BM(side,false);
 
 	%@desc: This process defines the actions when a BM fails. 
-	BM_fail(side:BoosterId) =  (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
+	BM_fail(side:BoosterId) = (s_fail_bm_thrust(side) + r_stop_bm(side) . s_stopped_bm(side)) . BM(side,true);
 
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(side:BoosterId) = 
