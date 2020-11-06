@@ -62,26 +62,25 @@
 % c_alt_stage_om
 
 
-% true
+true
 
-% %%%%% A takeoff should unavoidably lead to a landing %%%%%
-% && [true* . detach_ground_clamps] (mu X. [!land_cm] X && <true> true)
-
-
-% %%%%% A stage can not detach before previous stages have detached %%%%%
-% % both boosters detached before lm detaches
-% && forall side:BoosterId. [!detach_from_lm(side)* . detach_lm] false
-% % lm detached before om detaches (unless followed directly by abort)
-% && [!detach_lm* . detach_om] ([abort_cm] true && <true> true)
-% % sm after om
-% && [!detach_om* . detach_sm] false
+%%%%% A takeoff should unavoidably lead to a landing %%%%%
+&& [true* . detach_ground_clamps] (mu X. [!land_cm] X && <true> true)
 
 
-% %%%%% Thrusters of a module can only be started after detaching the previous module %%%%%
-% && [!detach_lm* . ignite_om] false
+%%%%% A stage can not detach before previous stages have detached %%%%%
+% both boosters detached before lm can detach
+&& forall side:BoosterId. [!detach_from_lm(side)* . detach_lm] false
+% lm detached before om detaches (unless followed directly by abort)
+&& [!detach_lm* . detach_om] ([abort_cm] true && <true> true)
+% sm after om
+&& [!detach_om* . detach_sm] false
 
 
-% %%%%% After takeoff, the crew module should either achieve orbit, or abort in flight. %%%%%
-% && [true* . detach_ground_clamps] mu X. ([!do_space_stuff && !abort_cm] X && <true> true)
+%%%%% Thrusters of a module can only be started after detaching the previous module %%%%%
+&& [!detach_lm* . ignite_om] false
 
-[true* . c_detach_bm(left)|c_detach_bm(right)] false
+
+%%%%% After takeoff, the crew module should either achieve orbit, or abort in flight. %%%%%
+&& [true* . detach_ground_clamps] mu X. ([!do_space_stuff && !abort_cm] X && <true> true)
+
