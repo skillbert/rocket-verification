@@ -14,8 +14,6 @@ act
 	thrust_bm:BoosterId;
 	detach_from_lm:BoosterId;
 	
-	s_startup_bm,r_startup_bm,c_startup_bm:BoosterId;
-	s_stop_bm,r_stop_bm,c_stop_bm:BoosterId;
 	s_confirm_bm_thrust,r_confirm_bm_thrust,c_confirm_bm_thrust:BoosterId;
 	s_stopped_bm,r_stopped_bm,c_stopped_bm:BoosterId;
 	s_fail_bm_thrust,r_fail_bm_thrust,c_fail_bm_thrust:BoosterId;
@@ -27,8 +25,11 @@ act
 	stop_lm;
 	thrust_lm;
 	detach_ground_clamps;
-	s_detach_bm,r_detach_bm,c_detach_bm:BoosterId;
+	abort_pad;
 
+	s_startup_bm,r_startup_bm,c_startup_bm:BoosterId;
+	s_stop_bm,r_stop_bm,c_stop_bm:BoosterId;
+	s_detach_bm,r_detach_bm,c_detach_bm:BoosterId;
 	s_lm_abort,r_lm_abort,c_lm_abort;
 	s_lm_ready_detach,r_lm_ready_detach,c_lm_ready_detach;
 
@@ -42,14 +43,13 @@ act
 
 	s_om_abort,r_om_abort,c_om_abort;
 	s_om_ready_detach,r_om_ready_detach,c_om_ready_detach;
-	s_detact_ascent_cover,r_detact_ascent_cover,c_detact_ascent_cover;
+	s_detach_ascent_cover,r_detach_ascent_cover,c_detach_ascent_cover;
 
 	%crew module
 	detach_om;
 	abort_cm;
-	abort_pad;
 	chutes_cm;
-	detach_heatshield_cm;
+	detach_descent_cover;
 	airbags_cm;
 	land_cm;
 	do_space_stuff;
@@ -171,7 +171,7 @@ proc
 		+sum side:BoosterId. r_fail_bm_thrust(side);
 
 	OM_wait = r_lm_ready_detach . OM;
-	OM = detach_lm . s_detact_ascent_cover . ignite_om . (
+	OM = detach_lm . s_detach_ascent_cover . ignite_om . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
@@ -186,13 +186,13 @@ proc
 	%@desc The crew can get abort signals or a ready signal from lower stages
 	%@param(hascover) indicates if the launch cover is still attached
 	CM(hascover:Bool) = 
-		(hascover) -> r_detact_ascent_cover . detach_ascent_cover . CM(false)
+		(hascover) -> r_detach_ascent_cover . detach_ascent_cover . CM(false)
 		+ (r_lm_abort + r_om_abort) . detach_om . abort_cm . ((hascover) -> detach_ascent_cover <> tau) . CM_land
 		+ (!hascover) -> r_om_ready_detach . detach_om . do_space_stuff . CM_land;
 
 
-	%TODO add  chutes, heatshield, airbags
-	CM_land = chutes_cm . detach_heatshield_cm . airbags_cm . land_cm . delta;
+	%TODO add  chutes, descent cover, airbags
+	CM_land = chutes_cm . detach_descent_cover . airbags_cm . land_cm . delta;
 	
 
 init allow(
@@ -205,14 +205,6 @@ init allow(
 		thrust_bm,
 		detach_from_lm,
 		
-		%toggle comment for 1/2/3 boosters
-		c_startup_bm,
-		c_stop_bm,
-		% c_startup_bm|c_startup_bm,
-		% c_stop_bm|c_stop_bm,
-		% c_startup_bm|c_startup_bm|c_startup_bm,
-		% c_stop_bm|c_stop_bm|c_stop_bm,
-		
 		c_confirm_bm_thrust,
 		c_stopped_bm,
 		c_fail_bm_thrust,
@@ -224,8 +216,17 @@ init allow(
 		stop_lm,
 		thrust_lm,
 		detach_ground_clamps,
-		c_detach_bm,
+		abort_pad,
 
+		%toggle comment for 1/2/3 boosters
+		c_startup_bm,
+		c_stop_bm,
+		% c_startup_bm|c_startup_bm,
+		% c_stop_bm|c_stop_bm,
+		% c_startup_bm|c_startup_bm|c_startup_bm,
+		% c_stop_bm|c_stop_bm|c_stop_bm,
+
+		c_detach_bm,
 		c_lm_abort,
 		c_lm_ready_detach,
 
@@ -239,19 +240,18 @@ init allow(
 
 		c_om_abort,
 		c_om_ready_detach,
-		c_detact_ascent_cover,
+		c_detach_ascent_cover,
 
 		%crew module
 		detach_om,
 		abort_cm,
-		abort_pad,
+		chutes_cm,
+		detach_descent_cover,
+		airbags_cm,
 		land_cm,
 		do_space_stuff,
 		detach_ascent_cover,
-		chutes_cm,
-		detach_heatshield_cm,
-		airbags_cm,
-
+		
 		%fuel sensors
 		c_bm_fuel_empty,
 
@@ -270,7 +270,7 @@ init allow(
 		s_lm_ready_detach|r_lm_ready_detach->c_lm_ready_detach,
 		s_om_abort|r_om_abort->c_om_abort,
 		s_om_ready_detach|r_om_ready_detach->c_om_ready_detach,
-		s_detact_ascent_cover|r_detact_ascent_cover->c_detact_ascent_cover,
+		s_detach_ascent_cover|r_detach_ascent_cover->c_detach_ascent_cover,
 		s_bm_fuel_empty|r_bm_fuel_empty->c_bm_fuel_empty,
 		s_alt_stage_lm|r_alt_stage_lm->c_alt_stage_lm,
 		s_alt_stage_om|r_alt_stage_om->c_alt_stage_om
