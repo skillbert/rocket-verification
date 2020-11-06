@@ -87,3 +87,13 @@ true
 (
     ([!confirm_lm_thrust* . detach_ground_clamps] false) && (forall i:BoosterId. [!c_confirm_bm_thrust(i)* . detach_ground_clamps] false)
 )
+
+%%%%%%%%%%%%%%%%%%
+% Orbital Module %
+%%%%%%%%%%%%%%%%%%
+% &&
+% % The orbital module steering valves should be re-mapped before detaching the service module. (S)
+% % Nog niet goed. Detachment kan ook gebeuren na abort van OM/LM
+% (
+%     [!remap_valves_om* . true* . detach_om] false
+% )
