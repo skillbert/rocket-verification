@@ -70,3 +70,20 @@ true
 
 %&&
 %[true* . forall s:BoosterId . confirm_bm_thrust(s) . !stop_bm(s)* .  ]
+
+
+
+%%%%%%%%%%%%%%%%%
+% Launch Module %
+%%%%%%%%%%%%%%%%%
+&&
+% After depleting its fuel, the LM will detach (L)
+(
+    [true* . c_lm_fuel_empty] <true*.detach_lm> true
+)
+
+&&
+% All engines should confirm thrust before the ground clamp release (S)
+(
+    ([!confirm_lm_thrust* . detach_ground_clamps] false) && (forall i:BoosterId. [!c_confirm_bm_thrust(i)* . detach_ground_clamps] false)
+)
