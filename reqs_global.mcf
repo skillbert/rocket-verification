@@ -82,5 +82,14 @@ true
 
 
 %%%%% After takeoff, the crew module should either achieve orbit, or abort in flight. %%%%%
-&& [true* . detach_ground_clamps] mu X. ([!do_space_stuff && !abort_cm] X && <true> true)
+&& [true* . detach_ground_clamps] (mu X. ([!do_space_stuff && !abort_cm] X && <true> true))
 
+
+
+
+
+
+%seperate requirement
+
+%%%%% The rocket should always take off unless there is an engine failure %%%%%
+&& (mu X. [!fail_bm_thrust(left) && !fail_bm_thrust(right) && !fail_lm_thrust && !detach_ground_clamps] X && <true> true)
