@@ -64,7 +64,9 @@
 
 true
 
-
-
+&&
 % always be possible to land after takeoff
-&& [true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true)
+[true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true)
+
+%&&
+%[true* . forall s:BoosterId . confirm_bm_thrust(s) . !stop_bm(s)* .  ]
