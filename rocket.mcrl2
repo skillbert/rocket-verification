@@ -7,6 +7,7 @@ sort BoosterId = struct main;
 map NOFAIL:Bool;
 
 %set to true to skip component failures in the model
+eqn NOFAIL = false;
 
 
 act
