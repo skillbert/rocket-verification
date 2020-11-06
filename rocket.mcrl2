@@ -2,7 +2,7 @@
 %toggle comment for 1/2/3 boosters (4 different placing in code)
 % sort BoosterId = struct main;
 sort BoosterId = struct left|right;
-%sort BoosterId = struct left|right|extra;
+% sort BoosterId = struct left|right|extra;
 
 map NOFAIL:Bool;
 
@@ -217,7 +217,6 @@ init allow(
 		c_confirm_bm_thrust,
 		c_stopped_bm,
 		c_fail_bm_thrust,
-		c_detach_bm,
 		c_detached_bm,
 
 		%launch module
@@ -231,10 +230,13 @@ init allow(
 		%toggle comment for 1/2/3 boosters
 		% c_startup_bm,
 		% c_stop_bm,
+		% c_detach_bm,
 		c_startup_bm|c_startup_bm,
 		c_stop_bm|c_stop_bm,
+		c_detach_bm|c_detach_bm,
 		% c_startup_bm|c_startup_bm|c_startup_bm,
 		% c_stop_bm|c_stop_bm|c_stop_bm,
+		% c_detach_bm|c_detach_bm|c_detach_bm,
 
 		c_lm_abort,
 		c_lm_ready_detach,
