@@ -38,10 +38,12 @@ act
 	confirm_om_thrust;
 	stop_om;
 	fail_om_thrust;
+	remap_valves_om;
 
 	s_om_abort,r_om_abort,c_om_abort;
 	s_om_ready_detach,r_om_ready_detach,c_om_ready_detach;
 	s_detach_ascent_cover,r_detach_ascent_cover,c_detach_ascent_cover;
+	s_confirm_cover_detach,r_confirm_cover_detach,c_confirm_cover_detach;
 
 	%crew module
 	detach_om;
@@ -52,12 +54,14 @@ act
 	land_cm;
 	do_space_stuff;
 	detach_ascent_cover;
+	remap_valves_sm;
+	detach_sm;
 
 	%fuel sensors
 	s_bm_fuel_empty,r_bm_fuel_empty,c_bm_fuel_empty;
+	s_lm_fuel_empty,r_lm_fuel_empty,c_lm_fuel_empty;
 
 	%altitude sensor/gps
-	s_alt_stage_lm,r_alt_stage_lm,c_alt_stage_lm;
 	s_alt_stage_om,r_alt_stage_om,c_alt_stage_om;
 	
 				
@@ -76,10 +80,10 @@ proc
 	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right)|s_detach_bm(extra);
 
 	%@desc: Sends fuel empty signal when either of the boosters is about to run out of fuel
-	Fuelsensor = s_bm_fuel_empty;
+	Fuelsensor = s_bm_fuel_empty. s_lm_fuel_empty . delta;
 
 	%@desc: Sends staging signals when orbit is heigh enough for different staging points
-	Altimeter = s_alt_stage_lm . s_alt_stage_om;
+	Altimeter = s_alt_stage_om . delta;
 
 	%@param(broken): The booster had a failure and can not be started again
 	%@desc: This process defines the main actions for a BM (start, stop, detach).
@@ -151,7 +155,7 @@ proc
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
 		fail_lm_thrust . s_lm_abort
-		+ r_alt_stage_lm . stop_lm . s_lm_ready_detach . delta;
+		+ r_lm_fuel_empty . stop_lm . s_lm_ready_detach . delta;
 	
 
 	%@desc: launch aborted at pad, rocket still on ground
@@ -166,7 +170,7 @@ proc
 		+sum side:BoosterId. r_fail_bm_thrust(side);
 
 	OM_wait = r_lm_ready_detach . OM;
-	OM = detach_lm . s_detach_ascent_cover . ignite_om . (
+	OM = detach_lm . s_detach_ascent_cover . ignite_om . r_confirm_cover_detach . (
 		confirm_om_thrust . OM_fly
 		+ fail_om_thrust . stop_om . s_om_abort . delta
 	);
@@ -174,19 +178,19 @@ proc
 	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
 		fail_om_thrust . stop_om . s_om_abort . delta
-		+ r_alt_stage_om . stop_om . s_om_ready_detach . delta;
+		+ r_alt_stage_om . stop_om . remap_valves_om . s_om_ready_detach . delta;
 
 	%crew and service module
 	%@desc The crew can get abort signals or a ready signal from lower stages
 	%@param(hascover) indicates if the launch cover is still attached
 	CM(hascover:Bool) = 
-		(hascover) -> r_detach_ascent_cover . detach_ascent_cover . CM(false)
+		(hascover) -> r_detach_ascent_cover . detach_ascent_cover . s_confirm_cover_detach . CM(false)
 		+ (r_lm_abort + r_om_abort) . detach_om . abort_cm . ((hascover) -> detach_ascent_cover <> tau) . CM_land
 		+ (!hascover) -> r_om_ready_detach . detach_om . do_space_stuff . CM_land;
 
 
 	%TODO add  chutes, descent cover, airbags
-	CM_land = chutes_cm . detach_descent_cover . airbags_cm . land_cm . delta;
+	CM_land = remap_valves_sm . detach_sm . chutes_cm . detach_descent_cover . airbags_cm . land_cm . delta;
 	
 
 init allow(
@@ -229,6 +233,7 @@ init allow(
 		confirm_om_thrust,
 		stop_om,
 		fail_om_thrust,
+		remap_valves_om,
 
 		c_om_abort,
 		c_om_ready_detach,
@@ -243,12 +248,15 @@ init allow(
 		land_cm,
 		do_space_stuff,
 		detach_ascent_cover,
+		remap_valves_sm,
+		detach_sm,
+
 		
 		%fuel sensors
 		c_bm_fuel_empty,
+		c_lm_fuel_empty,
 
 		%altitude sensor/gps
-		c_alt_stage_lm,
 		c_alt_stage_om
 	},
 	comm({
@@ -264,8 +272,9 @@ init allow(
 		s_om_abort|r_om_abort->c_om_abort,
 		s_om_ready_detach|r_om_ready_detach->c_om_ready_detach,
 		s_detach_ascent_cover|r_detach_ascent_cover->c_detach_ascent_cover,
+		s_confirm_cover_detach|r_confirm_cover_detach->c_confirm_cover_detach,
 		s_bm_fuel_empty|r_bm_fuel_empty->c_bm_fuel_empty,
-		s_alt_stage_lm|r_alt_stage_lm->c_alt_stage_lm,
+		s_lm_fuel_empty|r_lm_fuel_empty->c_lm_fuel_empty,
 		s_alt_stage_om|r_alt_stage_om->c_alt_stage_om
 	},
 		%toggle comment for 1/2/3 boosters
