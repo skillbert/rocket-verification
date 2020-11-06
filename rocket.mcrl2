@@ -1,8 +1,8 @@
 
 %toggle comment for 1/2/3 boosters (4 different placing in code)
-sort BoosterId = struct main;
-%sort BoosterId = struct left|right;
-%sort BoosterId = struct left|right|extra;
+% sort BoosterId = struct main;
+sort BoosterId = struct left|right;
+% sort BoosterId = struct left|right|extra;
 
 map NOFAIL:Bool;
 
@@ -74,12 +74,12 @@ proc
 
 	%predefined multiactions
 	%toggle comment for 1/2/3 boosters
-	s_stop_bm_all = s_stop_bm(main);
-	s_start_bm_all = s_startup_bm(main);
-	s_detach_bm_all = s_detach_bm(main);
-	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right);
-	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right);
-	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right);
+	% s_stop_bm_all = s_stop_bm(main);
+	% s_start_bm_all = s_startup_bm(main);
+	% s_detach_bm_all = s_detach_bm(main);
+	s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right);
+	s_start_bm_all = s_startup_bm(left)|s_startup_bm(right);
+	s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right);
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right)|s_stop_bm(extra);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
 	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right)|s_detach_bm(extra);
@@ -210,7 +210,6 @@ init allow(
 		c_confirm_bm_thrust,
 		c_stopped_bm,
 		c_fail_bm_thrust,
-		c_detach_bm,
 		c_detached_bm,
 
 		%launch module
@@ -222,12 +221,15 @@ init allow(
 		abort_pad,
 
 		%toggle comment for 1/2/3 boosters
-		c_startup_bm,
-		c_stop_bm,
-		% c_startup_bm|c_startup_bm,
-		% c_stop_bm|c_stop_bm,
+		% c_startup_bm,
+		% c_stop_bm,
+		% c_detach_bm,
+		c_startup_bm|c_startup_bm,
+		c_stop_bm|c_stop_bm,
+		c_detach_bm|c_detach_bm,
 		% c_startup_bm|c_startup_bm|c_startup_bm,
 		% c_stop_bm|c_stop_bm|c_stop_bm,
+		% c_detach_bm|c_detach_bm|c_detach_bm,
 
 		c_lm_abort,
 		c_lm_ready_detach,
@@ -284,8 +286,8 @@ init allow(
 		s_alt_stage_om|r_alt_stage_om->c_alt_stage_om
 	},
 		%toggle comment for 1/2/3 boosters
-		BM(main,false)
-		% BM(left,false) || BM(right,false)
+		% BM(main,false)
+		BM(left,false) || BM(right,false)
 		% BM(left,false) || BM(right,false) || BM(extra,false)
 		 || LM_startup || OM_wait || CM(true) || Fuelsensor || Altimeter
 	)
