@@ -66,9 +66,54 @@
 % Global %
 %%%%%%%%%%
 
-% always be possible to land after takeoff
- ([true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true))
 
+%%%%% A takeoff should unavoidably lead to a landing %%%%%
+(
+[true* . detach_ground_clamps] (mu X. [!land_cm] X && <true> true)
+)
+
+
+%%%%% A stage can not detach before previous stages have detached %%%%%
+% both boosters detached before lm can detach
+&&
+
+(
+     forall side:BoosterId. [!detach_from_lm(side)* . detach_lm] false
+)
+% lm detached before om detaches (unless followed directly by abort)
+&&
+(
+    [!detach_lm* . detach_om] ([abort_cm] true && <true> true)
+)
+% sm after om
+&&
+
+(
+    [!detach_om* . detach_sm] false
+)
+
+
+%%%%% Thrusters of a module can only be started after detaching the previous module %%%%%
+&& 
+
+(
+    [!detach_lm* . ignite_om] false
+)
+
+
+%%%%% After takeoff, the crew module should either achieve orbit, or abort in flight. %%%%%
+&& 
+(
+    [true* . detach_ground_clamps] (mu X. ([!do_space_stuff && !abort_cm] X && <true> true))
+)
+
+%separate requirement
+
+%%%%% The rocket should always take off unless there is an engine failure %%%%%
+&& 
+(
+    (mu X. [!fail_bm_thrust(left) && !fail_bm_thrust(right) && !fail_lm_thrust && !detach_ground_clamps] X && <true> true)
+)
 
 %%%%%%%%%%%%%%%%%%
 % Booster Module %
@@ -113,4 +158,53 @@
 &&
 (
     [!detach_ascent_cover* . ignite_om] false
+)
+
+
+%%%%%%%%%%%%%%%
+% Crew Module %
+%%%%%%%%%%%%%%%
+
+&&
+
+% The abort system should not fire if the rocket is still on the ground
+(
+    ([!detach_ground_clamps*.abort_cm]false)
+    &&
+    ([!detach_ground_clamps*.c_om_abort]false)
+    &&
+    ([!detach_ground_clamps*.c_lm_abort]false)
+
+)
+
+ &&
+
+% The ascent cover should be separated before parachute deployment 
+(
+     [!detach_ascent_cover* . chutes_cm]false
+)
+
+&&
+
+% All landing actions should occur in correct order before landing
+(
+    [!chutes_cm*.detach_descent_cover]false
+    &&
+    [true*.chutes_cm]<detach_descent_cover>true
+)
+
+&&
+
+(
+    [!detach_descent_cover*.airbags_cm]false
+    &&
+    [true*.detach_descent_cover]<airbags_cm>true
+)
+
+&&
+
+(
+    [!airbags_cm*.land_cm]false
+    &&
+    [true*.airbags_cm]<land_cm>true
 )

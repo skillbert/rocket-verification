@@ -145,7 +145,6 @@ proc
 		(exists side:BoosterId. side in bm_attached) -> (
 			sum side:BoosterId. (side in bm_attached) -> r_detached_bm(side) . LM_sep_bm(bm_attached-{side})
 			+ (!NOFAIL)->fail_lm_thrust . LM_abort
-			+ (!NOFAIL)->LM_abort %TODO add sep fail action
 		) <> LM_fly_space;
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
