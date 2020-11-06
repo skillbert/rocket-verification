@@ -11,7 +11,6 @@ act
 	stop_bm:BoosterId;
 	confirm_bm_thrust:BoosterId;
 	fail_bm_thrust:BoosterId;
-	thrust_bm:BoosterId;
 	detach_from_lm:BoosterId;
 	
 	s_startup_bm,r_startup_bm,c_startup_bm:BoosterId;
@@ -25,9 +24,9 @@ act
 	confirm_lm_thrust;
 	fail_lm_thrust;
 	stop_lm;
-	thrust_lm;
 	detach_ground_clamps;
 	s_detach_bm,r_detach_bm,c_detach_bm:BoosterId;
+	s_detached_bm,r_detached_bm,c_detached_bm:BoosterId;
 
 	s_lm_abort,r_lm_abort,c_lm_abort;
 	s_lm_ready_detach,r_lm_ready_detach,c_lm_ready_detach;
@@ -38,7 +37,6 @@ act
 	confirm_om_thrust;
 	stop_om;
 	fail_om_thrust;
-	thrust_om;
 
 	s_om_abort,r_om_abort,c_om_abort;
 	s_om_ready_detach,r_om_ready_detach,c_om_ready_detach;
@@ -69,10 +67,13 @@ proc
 	%toggle comment for 1/2/3 boosters
 	s_stop_bm_all = s_stop_bm(main);
 	s_start_bm_all = s_startup_bm(main);
+	s_detach_bm_all = s_detach_bm(main);
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right);
+	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right);
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right)|s_stop_bm(extra);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
+	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right)|s_detach_bm(extra);
 
 	%@desc: Sends fuel empty signal when either of the boosters is about to run out of fuel
 	Fuelsensor = s_bm_fuel_empty;
@@ -85,7 +86,7 @@ proc
 	BM(side:BoosterId,broken:Bool) =
 		(!broken) -> r_startup_bm(side) . ignite_bm(side) . BM_start(side)
 		+ r_stop_bm(side) . BM(side,broken)
-		+ r_detach_bm(side) . detach_from_lm(side) . delta;
+		+ r_detach_bm(side) . detach_from_lm(side) . s_detached_bm(side) . delta;
 	
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(side:BoosterId) =
@@ -101,8 +102,7 @@ proc
 
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(side:BoosterId) = 
-		thrust_bm(side) . BM_on(side)
-		+ BM_fail(side)
+		BM_fail(side)
 		+ r_stop_bm(side) . BM_stop(side);
 		
 
@@ -117,13 +117,11 @@ proc
 		sum side:BoosterId. !(side in bm_engine) -> r_confirm_bm_thrust(side) . LM_ground(engine_on,bm_engine+{side})
 		+ (!engine_on) -> confirm_lm_thrust . LM_ground(true,bm_engine)
 		+ (engine_on && forall side:BoosterId. side in bm_engine) -> detach_ground_clamps . LM_fly
-		+ (engine_on) -> thrust_lm . LM_ground(engine_on,bm_engine)
 		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + fail_lm_thrust) . LM_ground_abort;
 
 	%@desc: This process defines the actions the LM performs when it is in the air (fly, abort, stop).
 	LM_fly =
-		thrust_lm . LM_fly 		
-		+ r_bm_fuel_empty . s_stop_bm_all . LM_stop_bm({side:BoosterId|true})
+		r_bm_fuel_empty . s_stop_bm_all . LM_stop_bm({side:BoosterId|true})
 		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + fail_lm_thrust) . LM_abort;
 
 	%@param(bm_on): Set of booster engines that are on
@@ -132,19 +130,17 @@ proc
 	LM_stop_bm(bm_on:Set(BoosterId)) = 
 		(exists side:BoosterId. side in bm_on) -> (
 			sum side:BoosterId. (side in bm_on) -> (r_stopped_bm(side) + r_fail_bm_thrust(side)) . LM_stop_bm(bm_on-{side})
-			+ thrust_lm . LM_stop_bm(bm_on)
 			+ fail_lm_thrust . LM_abort
-		) <> LM_sep_bm({side:BoosterId|true});
+		) <> s_detach_bm_all . LM_sep_bm({side:BoosterId|true});
 
 	%@param(bm_attached): Set of boosters that are attached to LM
 	%@desc: This process describes the actions the LM performs when separating from the BMs. If it is separated and out of
 	%		the atmosphere it will start the LM_fly_space process.	
 	LM_sep_bm(bm_attached:Set(BoosterId)) = 
 		(exists side:BoosterId. side in bm_attached) -> (
-			sum side:BoosterId. (side in bm_attached) -> s_detach_bm(side) . LM_sep_bm(bm_attached-{side})
-			+ thrust_lm . LM_sep_bm(bm_attached)
+			sum side:BoosterId. (side in bm_attached) -> r_detached_bm(side) . LM_sep_bm(bm_attached-{side})
 			+ fail_lm_thrust . LM_abort
-			+ LM_abort %add sep fail action
+			+ LM_abort %TODO add sep fail action
 		) <> LM_fly_space;
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
@@ -154,8 +150,7 @@ proc
 	%@desc: This process defines the actions when the LM is in space. The LM can fail resulting in an abort or it can succesfully
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
-		thrust_lm . LM_fly_space
-		+ fail_lm_thrust . s_lm_abort
+		fail_lm_thrust . s_lm_abort
 		+ r_alt_stage_lm . stop_lm . s_lm_ready_detach . delta;
 	
 
@@ -178,8 +173,7 @@ proc
 	
 	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
-		thrust_om . OM_fly
-		+ fail_om_thrust . stop_om . s_om_abort . delta
+		fail_om_thrust . stop_om . s_om_abort . delta
 		+ r_alt_stage_om . stop_om . s_om_ready_detach . delta;
 
 	%crew and service module
@@ -202,7 +196,6 @@ init allow(
 		stop_bm,
 		confirm_bm_thrust,
 		fail_bm_thrust,
-		thrust_bm,
 		detach_from_lm,
 		
 		%toggle comment for 1/2/3 boosters
@@ -222,9 +215,9 @@ init allow(
 		confirm_lm_thrust,
 		fail_lm_thrust,
 		stop_lm,
-		thrust_lm,
 		detach_ground_clamps,
 		c_detach_bm,
+		c_detached_bm,
 
 		c_lm_abort,
 		c_lm_ready_detach,
@@ -235,7 +228,6 @@ init allow(
 		confirm_om_thrust,
 		stop_om,
 		fail_om_thrust,
-		thrust_om,
 
 		c_om_abort,
 		c_om_ready_detach,
@@ -266,6 +258,7 @@ init allow(
 		s_stopped_bm|r_stopped_bm->c_stopped_bm,
 		s_fail_bm_thrust|r_fail_bm_thrust->c_fail_bm_thrust,
 		s_detach_bm|r_detach_bm->c_detach_bm,
+		s_detached_bm|r_detached_bm->c_detached_bm,
 		s_lm_abort|r_lm_abort->c_lm_abort,
 		s_lm_ready_detach|r_lm_ready_detach->c_lm_ready_detach,
 		s_om_abort|r_om_abort->c_om_abort,
