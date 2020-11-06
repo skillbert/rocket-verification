@@ -1,5 +1,70 @@
 
-[true*] <true> false
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% text for auto-complete, remove for report %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%Checks for freedom of deadlock. (doens't work..)
-%[true*] <true || s_om_abort || s_om_orbit_ok || land_cm || BM_seperated || s_lm_orbit_ok> true
+% ignite_bm,
+% stop_bm,
+% confirm_bm_thrust,
+% fail_bm_thrust,
+% detach_from_lm,
+
+% c_confirm_bm_thrust,
+% c_stopped_bm,
+% c_fail_bm_thrust,
+% c_detach_bm,
+% c_detached_bm,
+
+% %launch module
+% ignite_lm,
+% confirm_lm_thrust,
+% fail_lm_thrust,
+% stop_lm,
+% detach_ground_clamps,
+% abort_pad,
+
+% %toggle comment for 1/2/3 boosters
+% c_startup_bm,
+% c_stop_bm,
+% % c_startup_bm|c_startup_bm,
+% % c_stop_bm|c_stop_bm,
+% % c_startup_bm|c_startup_bm|c_startup_bm,
+% % c_stop_bm|c_stop_bm|c_stop_bm,
+
+% c_lm_abort,
+% c_lm_ready_detach,
+
+% %orbital module
+% detach_lm,
+% ignite_om,
+% confirm_om_thrust,
+% stop_om,
+% fail_om_thrust,
+
+% c_om_abort,
+% c_om_ready_detach,
+% c_detach_ascent_cover,
+
+% %crew module
+% detach_om,
+% abort_cm,
+% chutes_cm,
+% detach_descent_cover,
+% airbags_cm,
+% land_cm,
+% do_space_stuff,
+% detach_ascent_cover,
+
+% %fuel sensors
+% c_bm_fuel_empty,
+
+% %altitude sensor/gps
+% c_alt_stage_lm,
+% c_alt_stage_om
+
+true
+
+
+
+% always be possible to land after takeoff
+&& [true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true)
