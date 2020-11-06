@@ -66,19 +66,31 @@
 % Global %
 %%%%%%%%%%
 
-
-%%%%% A takeoff should unavoidably lead to a landing %%%%%
+%%%%% 1. The rocket should always take off unless there is an engine failure. (L) %%%%%
 (
-[true* . detach_ground_clamps] (mu X. [!land_cm] X && <true> true)
+    (mu X. [!fail_bm_thrust(left) && !fail_bm_thrust(right) && !fail_lm_thrust && !detach_ground_clamps] X && <true> true)
 )
 
 
-%%%%% A stage can not detach before previous stages have detached %%%%%
+%%%%% 2. After takeoff, the crew module should either achieve orbit, or abort in flight. (L) %%%%%
+&& 
+(
+    [true* . detach_ground_clamps] (mu X. ([!do_space_stuff && !abort_cm] X && <true> true))
+)
+
+
+%%%%% 3. A takeoff should unavoidably lead to a landing. (L) %%%%%
+&& 
+(
+    [true* . detach_ground_clamps] (mu X. [!land_cm] X && <true> true)
+)
+
+
+%%%%% 4. A stage can not detach before previous stages have detached. (S) %%%%%
 % both boosters detached before lm can detach
 &&
-
 (
-     forall side:BoosterId. [!detach_from_lm(side)* . detach_lm] false
+    forall side:BoosterId. [!detach_from_lm(side)* . detach_lm] false
 )
 % lm detached before om detaches (unless followed directly by abort)
 &&
@@ -87,74 +99,66 @@
 )
 % sm after om
 &&
-
 (
     [!detach_om* . detach_sm] false
 )
 
 
-%%%%% Thrusters of a module can only be started after detaching the previous module %%%%%
+%%%%% 5. Thrusters of a module can only be started after detaching the previous module. (S) %%%%%
 && 
-
 (
     [!detach_lm* . ignite_om] false
 )
 
 
-%%%%% After takeoff, the crew module should either achieve orbit, or abort in flight. %%%%%
-&& 
-(
-    [true* . detach_ground_clamps] (mu X. ([!do_space_stuff && !abort_cm] X && <true> true))
-)
-
-%separate requirement
-
-%%%%% The rocket should always take off unless there is an engine failure %%%%%
-&& 
-(
-    (mu X. [!fail_bm_thrust(left) && !fail_bm_thrust(right) && !fail_lm_thrust && !detach_ground_clamps] X && <true> true)
-)
-
 %%%%%%%%%%%%%%%%%%
 % Booster Module %
 %%%%%%%%%%%%%%%%%%
- &&
+
+%%%%% 1. The boosters should not be separated while they are still on. (S) %%%%%
+&&
+(
+    [!(c_stop_bm(right)|c_stop_bm(left))* . (c_detach_bm(right)|c_detach_bm(left))] false
+)
 
 
-%The boosters can only detach after depleting their fuel (S)
-([!c_bm_fuel_empty* . c_detach_bm(left)|c_detach_bm(right)] false)
-
- &&
- %The boosters should not separate while they are still on (S)
-([!(c_stop_bm(right)|c_stop_bm(left))* . (c_detach_bm(right)|c_detach_bm(left))] false)
+%%%%% 2. The boosters should only detach after depleting their fuel. (L) %%%%%
+&&
+(
+    [!c_bm_fuel_empty* . c_detach_bm(left)|c_detach_bm(right)] false
+)
 
 
 %%%%%%%%%%%%%%%%%
 % Launch Module %
 %%%%%%%%%%%%%%%%%
+
+%%%%% 1. After depleting its fuel, the LM will detach (L) %%%%%
 &&
-% After depleting its fuel, the LM will detach (L)
 (
     [true* . c_lm_fuel_empty] <true*.detach_lm> true
 )
 
+
+%%%%% 2. All engines should confirm thrust before the ground clamp release (S) %%%%%
 &&
-% All engines should confirm thrust before the ground clamp release (S)
 (
     ([!confirm_lm_thrust* . detach_ground_clamps] false) && (forall i:BoosterId. [!c_confirm_bm_thrust(i)* . detach_ground_clamps] false)
 )
 
+
 %%%%%%%%%%%%%%%%%%
 % Orbital Module %
 %%%%%%%%%%%%%%%%%%
-&&
-% The orbital module steering valves should be re-mapped before detaching the service module. (S)
-% Nog niet goed. Detachment kan ook gebeuren na abort van OM/LM
 
+%%%%% 1. The orbital module steering valves should be re-mapped before detaching from the service module, unless the crew module aborts. (S) %%%%%
+&&
 (
-     [!remap_valves_om* . detach_om] ([abort_cm] true && <true>true)
+    [!remap_valves_om* . detach_om] ([abort_cm] true && <true>true)
 )
 
+
+%%%%% 2. The crew module ascent cover should detach before starting the OM engine. (S) %%%%%
 &&
 (
     [!detach_ascent_cover* . ignite_om] false
@@ -165,9 +169,8 @@
 % Crew Module %
 %%%%%%%%%%%%%%%
 
+%%%%% 1. The abort system should not fire if the rocket is still on the ground. (S) %%%%%
 &&
-
-% The abort system should not fire if the rocket is still on the ground
 (
     ([!detach_ground_clamps*.abort_cm]false)
     &&
@@ -177,16 +180,20 @@
 
 )
 
- &&
 
-% The ascent cover should be separated before parachute deployment 
+%%%%% 2. The abort system should never fire if there is no failure. (S) %%%%%
+
+
+
+%%%%% 3. The ascent cover should be separated before parachute deployment. (S) %%%%%
+&&
 (
-     [!detach_ascent_cover* . chutes_cm]false
+    [!detach_ascent_cover* . chutes_cm]false
 )
 
-&&
 
-% All landing actions should occur in correct order before landing
+%%%%% 4. All landing actions should occur in correct order before landing. (S) %%%%%
+&&
 (
     [!chutes_cm*.detach_descent_cover]false
     &&
