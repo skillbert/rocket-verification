@@ -182,8 +182,11 @@
 
 
 %%%%% 2. The abort system should never fire if there is no failure. (S) %%%%%
+&&
 
-
+(
+    [(!fail_bm_thrust(left) && !fail_bm_thrust(right) && !fail_lm_thrust && !fail_om_thrust)* . abort_cm] false
+)
 
 %%%%% 3. The ascent cover should be separated before parachute deployment. (S) %%%%%
 &&

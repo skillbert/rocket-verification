@@ -5,5 +5,5 @@ set /p res= < tmpfile
 del tmpfile
 echo %res%
 if %res%==true echo success & exit /b
-lps2lts rocket.pbes.evidence.lps rocket.pbes.evidence.lts
-ltsgraph rocket.pbes.evidence.lts
+lps2lts rocket-evidence.lps rocket-evidence.lts
+ltsgraph rocket-evidence.lts
