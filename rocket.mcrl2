@@ -4,6 +4,10 @@ sort BoosterId = struct main;
 %sort BoosterId = struct left|right;
 %sort BoosterId = struct left|right|extra;
 
+map NOFAIL:Bool;
+
+%set to true to skip component failures in the model
+
 
 act
 	%booster module
@@ -95,7 +99,7 @@ proc
 	%@desc: This process defines the possible actions while the BM is starting (fail, stop, on).
 	BM_start(side:BoosterId) =
 		confirm_bm_thrust(side) . s_confirm_bm_thrust(side) . BM_on(side)
-		+ BM_fail(side)
+		+ (!NOFAIL)-> BM_fail(side)
 		+ r_stop_bm(side) . BM_stop(side);
 	
 	%@desc: This process defines the actions when the BM needs to stop which means it is broken.
@@ -106,7 +110,7 @@ proc
 
 	%@desc: When the BM is on it can thrust the engine, fail or it can be stopped. .
 	BM_on(side:BoosterId) = 
-		BM_fail(side)
+		(!NOFAIL)-> BM_fail(side)
 		+ r_stop_bm(side) . BM_stop(side);
 		
 
@@ -121,12 +125,12 @@ proc
 		sum side:BoosterId. !(side in bm_engine) -> r_confirm_bm_thrust(side) . LM_ground(engine_on,bm_engine+{side})
 		+ (!engine_on) -> confirm_lm_thrust . LM_ground(true,bm_engine)
 		+ (engine_on && forall side:BoosterId. side in bm_engine) -> detach_ground_clamps . LM_fly
-		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + fail_lm_thrust) . LM_ground_abort;
+		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + (!NOFAIL)->fail_lm_thrust) . LM_ground_abort;
 
 	%@desc: This process defines the actions the LM performs when it is in the air (fly, abort, stop).
 	LM_fly =
 		r_bm_fuel_empty . s_stop_bm_all . LM_stop_bm({side:BoosterId|true})
-		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + fail_lm_thrust) . LM_abort;
+		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + (!NOFAIL)->fail_lm_thrust) . LM_abort;
 
 	%@param(bm_on): Set of booster engines that are on
 	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state in a parallel action(on or off), 
@@ -134,7 +138,7 @@ proc
 	LM_stop_bm(bm_on:Set(BoosterId)) = 
 		(exists side:BoosterId. side in bm_on) -> (
 			sum side:BoosterId. (side in bm_on) -> (r_stopped_bm(side) + r_fail_bm_thrust(side)) . LM_stop_bm(bm_on-{side})
-			+ fail_lm_thrust . LM_abort
+			+ (!NOFAIL)->fail_lm_thrust . LM_abort
 		) <> s_detach_bm_all . LM_sep_bm({side:BoosterId|true});
 
 	%@param(bm_attached): Set of boosters that are attached to LM
@@ -143,8 +147,8 @@ proc
 	LM_sep_bm(bm_attached:Set(BoosterId)) = 
 		(exists side:BoosterId. side in bm_attached) -> (
 			sum side:BoosterId. (side in bm_attached) -> r_detached_bm(side) . LM_sep_bm(bm_attached-{side})
-			+ fail_lm_thrust . LM_abort
-			+ LM_abort %TODO add sep fail action
+			+ (!NOFAIL)->fail_lm_thrust . LM_abort
+			+ (!NOFAIL)->LM_abort %TODO add sep fail action
 		) <> LM_fly_space;
 
 	%@desc: This process defines the actions when the LM needs to abort. It stops both BMs, stops the LM and proceeds
@@ -154,7 +158,7 @@ proc
 	%@desc: This process defines the actions when the LM is in space. The LM can fail resulting in an abort or it can succesfully
 	%		achieve orbit in which case it stops and ends in a non-active process.
 	LM_fly_space = 
-		fail_lm_thrust . s_lm_abort
+		(!NOFAIL)->fail_lm_thrust . s_lm_abort
 		+ r_lm_fuel_empty . stop_lm . s_lm_ready_detach . delta;
 	
 
@@ -170,14 +174,14 @@ proc
 		+sum side:BoosterId. r_fail_bm_thrust(side);
 
 	OM_wait = r_lm_ready_detach . OM;
-	OM = detach_lm . s_detach_ascent_cover . ignite_om . r_confirm_cover_detach . (
+	OM = detach_lm . s_detach_ascent_cover . r_confirm_cover_detach . ignite_om . (
 		confirm_om_thrust . OM_fly
-		+ fail_om_thrust . stop_om . s_om_abort . delta
+		+ (!NOFAIL)-> fail_om_thrust . stop_om . s_om_abort . delta
 	);
 	
 	%@desc The OM is in orbit, When it is ready to detach it sends the message to the CM and terminates
 	OM_fly = 
-		fail_om_thrust . stop_om . s_om_abort . delta
+		(!NOFAIL)-> fail_om_thrust . stop_om . s_om_abort . delta
 		+ r_alt_stage_om . stop_om . remap_valves_om . s_om_ready_detach . delta;
 
 	%crew and service module
@@ -238,6 +242,7 @@ init allow(
 		c_om_abort,
 		c_om_ready_detach,
 		c_detach_ascent_cover,
+		c_confirm_cover_detach,
 
 		%crew module
 		detach_om,
