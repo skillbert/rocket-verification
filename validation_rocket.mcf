@@ -62,15 +62,26 @@
 % c_alt_stage_lm,
 % c_alt_stage_om
 
-true
+%%%%%%%%%%
+% Global %
+%%%%%%%%%%
 
-&&
 % always be possible to land after takeoff
-[true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true)
+ ([true* . detach_ground_clamps] mu X. ([!land_cm] X && <true> true))
 
-%&&
-%[true* . forall s:BoosterId . confirm_bm_thrust(s) . !stop_bm(s)* .  ]
 
+%%%%%%%%%%%%%%%%%%
+% Booster Module %
+%%%%%%%%%%%%%%%%%%
+ &&
+
+
+%The boosters can only detach after depleting their fuel (S)
+([!c_bm_fuel_empty* . c_detach_bm(left)|c_detach_bm(right)] false)
+
+ &&
+ %The boosters should not separate while they are still on (S)
+([!(c_stop_bm(right)|c_stop_bm(left))* . (c_detach_bm(right)|c_detach_bm(left))] false)
 
 
 %%%%%%%%%%%%%%%%%
@@ -91,9 +102,15 @@ true
 %%%%%%%%%%%%%%%%%%
 % Orbital Module %
 %%%%%%%%%%%%%%%%%%
-% &&
-% % The orbital module steering valves should be re-mapped before detaching the service module. (S)
-% % Nog niet goed. Detachment kan ook gebeuren na abort van OM/LM
-% (
-%     [!remap_valves_om* . true* . detach_om] false
-% )
+&&
+% The orbital module steering valves should be re-mapped before detaching the service module. (S)
+% Nog niet goed. Detachment kan ook gebeuren na abort van OM/LM
+
+(
+     [!remap_valves_om* . detach_om] ([abort_cm] true && <true>true)
+)
+
+&&
+(
+    [!detach_ascent_cover* . ignite_om] false
+)
