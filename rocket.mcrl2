@@ -1,12 +1,12 @@
 
+% toggle comment for 1/2 boosters (also 3 other placing in code, ctrl-f "toggle")
+% mcf validation only works for 2 boosters
 % sort BoosterId = struct main;
 sort BoosterId = struct left|right;
 
+% set to true to skip component failures in the model
 map NOFAIL:Bool;
-
-%set to true to skip component failures in the model
 eqn NOFAIL = false;
-
 
 act
 	%booster module
