@@ -1,7 +1,7 @@
 
 %toggle comment for 1/2/3 boosters (4 different placing in code)
-sort BoosterId = struct main;
-%sort BoosterId = struct left|right;
+% sort BoosterId = struct main;
+sort BoosterId = struct left|right;
 %sort BoosterId = struct left|right|extra;
 
 map NOFAIL:Bool;
@@ -11,6 +11,10 @@ eqn NOFAIL = false;
 
 
 act
+	%META model checking counter example action
+	counterexample;
+
+
 	%booster module
 	ignite_bm:BoosterId;
 	stop_bm:BoosterId;
@@ -74,12 +78,12 @@ proc
 
 	%predefined multiactions
 	%toggle comment for 1/2/3 boosters
-	s_stop_bm_all = s_stop_bm(main);
-	s_start_bm_all = s_startup_bm(main);
-	s_detach_bm_all = s_detach_bm(main);
-	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right);
-	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right);
-	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right);
+	% s_stop_bm_all = s_stop_bm(main);
+	% s_start_bm_all = s_startup_bm(main);
+	% s_detach_bm_all = s_detach_bm(main);
+	s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right);
+	s_start_bm_all = s_startup_bm(left)|s_startup_bm(right);
+	s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right);
 	% s_stop_bm_all = s_stop_bm(left)|s_stop_bm(right)|s_stop_bm(extra);
 	% s_start_bm_all = s_startup_bm(left)|s_startup_bm(right)|s_startup_bm(extra);
 	% s_detach_bm_all = s_detach_bm(left)|s_detach_bm(right)|s_detach_bm(extra);
@@ -131,7 +135,8 @@ proc
 	%@desc: This process defines the actions the LM performs when it is in the air (fly, abort, stop).
 	LM_fly =
 		r_bm_fuel_empty . s_stop_bm_all . LM_stop_bm({side:BoosterId|true})
-		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + (!NOFAIL)->fail_lm_thrust) . LM_abort;
+		+ ((sum side:BoosterId. r_fail_bm_thrust(side)) + (!NOFAIL)->fail_lm_thrust) . LM_abort
+		+ counterexample . delta;
 
 	%@param(bm_on): Set of booster engines that are on
 	%@desc: This process describes the actions the LM performs when it needs to stop the BMs. It gets both the BM's state in a parallel action(on or off), 
@@ -200,6 +205,8 @@ proc
 
 init allow(
 	{
+		counterexample,
+
 		%booster module
 		ignite_bm,
 		stop_bm,
@@ -222,10 +229,10 @@ init allow(
 		abort_pad,
 
 		%toggle comment for 1/2/3 boosters
-		c_startup_bm,
-		c_stop_bm,
-		% c_startup_bm|c_startup_bm,
-		% c_stop_bm|c_stop_bm,
+		% c_startup_bm,
+		% c_stop_bm,
+		c_startup_bm|c_startup_bm,
+		c_stop_bm|c_stop_bm,
 		% c_startup_bm|c_startup_bm|c_startup_bm,
 		% c_stop_bm|c_stop_bm|c_stop_bm,
 
@@ -284,8 +291,8 @@ init allow(
 		s_alt_stage_om|r_alt_stage_om->c_alt_stage_om
 	},
 		%toggle comment for 1/2/3 boosters
-		BM(main,false)
-		% BM(left,false) || BM(right,false)
+		% BM(main,false)
+		BM(left,false) || BM(right,false)
 		% BM(left,false) || BM(right,false) || BM(extra,false)
 		 || LM_startup || OM_wait || CM(true) || Fuelsensor || Altimeter
 	)
